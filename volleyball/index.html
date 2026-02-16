@@ -6,12 +6,12 @@
   <title>배구 점수판</title>
   <script>
     window.__VB_GATE_CONFIG__ = {
-      configPath: "../firebase.config.js?v=20260216-1",
+      configPath: "../firebase.config.js?v=20260216-2",
       redirectOnLock: true,
       redirectTo: "../index.html"
     };
   </script>
-  <script src="../gate.js?v=20260216-1"></script>
+  <script src="../gate.js?v=20260216-2"></script>
   <style>
     :root{
       --bg1:#eef5ff;
@@ -646,7 +646,7 @@ body { min-height: 100vh; }
 
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-  <script src="../firebase.config.js?v=20260216-1"></script>
+  <script src="../firebase.config.js?v=20260216-2"></script>
   <script>
     const KEY = "vb_scoreboard_full_v1";
     const SCORE_DOC_ID = "scoreboard";
@@ -1494,11 +1494,22 @@ body { min-height: 100vh; }
     void startScoreCloudSync();
   </script>
   <script>
-  if ("serviceWorker" in navigator) {
-    window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./sw.js").catch(console.log);
-    });
-  }
-</script>
+    // 배포 구조에서는 서비스워커를 사용하지 않으므로, 과거 등록분을 정리한다.
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", async () => {
+        try {
+          const regs = await navigator.serviceWorker.getRegistrations();
+          for (const reg of regs) {
+            const scope = String(reg.scope || "");
+            if (scope.includes("/deploy_volley/volleyball/") || scope.endsWith("/volleyball/")) {
+              await reg.unregister();
+            }
+          }
+        } catch (err) {
+          console.warn("[sw] cleanup failed:", err);
+        }
+      });
+    }
+  </script>
 </body>
 </html>

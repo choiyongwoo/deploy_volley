@@ -30,6 +30,13 @@ python3 -m http.server 8080
 - 홈 > 기능연습 > 버튼 클릭 시 `practice/index.html?slot=n` 로드
 - 홈 > 실전게임 > 기록원 클릭 시 `volleyball/index.html` 로드
 
+### 정적 파일 캐시 버전 규칙
+
+GitHub Pages 캐시로 인해 일반 새로고침에서 예전 JS가 남을 수 있으므로, 주요 스크립트 URL에 `?v=...`를 사용합니다.
+
+- 현재 버전: `20260216-2`
+- 다음 배포에서 `gate.js` 또는 `firebase.config.js`를 수정했다면, `index.html`, `practice/index.html`, `volleyball/index.html`, `admin.html`의 `?v=` 값을 함께 증가시키세요.
+
 ## Firebase 연동/게이트 설정
 
 코드에는 Firestore 동기화 + 관리자 ON/OFF 게이트가 연결되어 있습니다.

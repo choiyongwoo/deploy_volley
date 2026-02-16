@@ -7,8 +7,6 @@
   var configPath = cfg.configPath || "./firebase.config.js";
   var redirectOnLock = !!cfg.redirectOnLock;
   var redirectTo = cfg.redirectTo || "./index.html";
-  var pendingTimeoutMs = Number(cfg.pendingTimeoutMs || 8000);
-  var pendingTimer = null;
 
   window.__VB_GATE_IS_OPEN__ = false;
   window.__VB_GATE_READY__ = false;
@@ -26,7 +24,6 @@
     var style = document.createElement("style");
     style.id = "vbGateStyle";
     style.textContent = [
-      "html.vb-gate-pending body { visibility: hidden !important; }",
       "#vbGateOverlay {",
       "  position: fixed; inset: 0; z-index: 2147483647;",
       "  display: flex; align-items: center; justify-content: center;",
@@ -43,6 +40,10 @@
   function setPending(on) {
     if (on) document.documentElement.classList.add("vb-gate-pending");
     else document.documentElement.classList.remove("vb-gate-pending");
+  }
+
+  function showPendingOverlay() {
+    showOverlay("수업 상태 확인 중", "관리자 게이트 상태를 확인하고 있습니다. 잠시만 기다려 주세요.");
   }
 
   function showOverlay(title, message) {
@@ -73,7 +74,6 @@
   }
 
   function lockPage(reason) {
-    clearPendingTimer();
     window.__VB_GATE_IS_OPEN__ = false;
     window.__VB_GATE_READY__ = true;
     setPending(false);
@@ -90,7 +90,6 @@
   }
 
   function openPage() {
-    clearPendingTimer();
     window.__VB_GATE_IS_OPEN__ = true;
     window.__VB_GATE_READY__ = true;
     setPending(false);
@@ -124,19 +123,10 @@
     });
   }
 
-  function clearPendingTimer() {
-    if (!pendingTimer) return;
-    clearTimeout(pendingTimer);
-    pendingTimer = null;
-  }
-
   async function initGate() {
     ensureGateStyle();
     setPending(true);
-    clearPendingTimer();
-    pendingTimer = setTimeout(function () {
-      lockPage("게이트 확인이 지연되고 있습니다. 잠시 후 새로고침해 주세요.");
-    }, pendingTimeoutMs);
+    showPendingOverlay();
 
     try {
       if (!window.firebase || !firebase.firestore) {
@@ -161,6 +151,7 @@
       var gateRef = db.collection("classes").doc(classId).collection("control").doc("gate");
 
       gateRef.onSnapshot(function (snap) {
+        window.__VB_GATE_READY__ = true;
         if (!snap.exists) {
           lockPage("관리자가 아직 수업을 열지 않았습니다.");
           return;
