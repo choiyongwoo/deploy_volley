@@ -2,13 +2,20 @@
   "use strict";
 
   var cfg = window.__VB_GATE_CONFIG__ || {};
-  var firebaseAppUrl = "https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js";
-  var firebaseFirestoreUrl = "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js";
   var configPath = cfg.configPath || "./firebase.config.js";
   var redirectOnLock = !!cfg.redirectOnLock;
   var redirectTo = cfg.redirectTo || "./index.html";
-  var prefetchRequired = !!cfg.prefetchRequired;
+  var pollMs = Number(cfg.pollMs || 2000);
+  var failThreshold = Number(cfg.failThreshold || 3);
+  var apiBaseOverride = String(cfg.gateApiBase || "").trim();
+
+  if (!Number.isFinite(pollMs) || pollMs < 500) pollMs = 2000;
+  if (!Number.isFinite(failThreshold) || failThreshold < 1) failThreshold = 3;
+
   var lastGateOpen = null;
+  var pollTimer = null;
+  var consecutiveFails = 0;
+  var gateUrl = "";
 
   window.__VB_GATE_IS_OPEN__ = false;
   window.__VB_GATE_READY__ = false;
@@ -44,10 +51,6 @@
     else document.documentElement.classList.remove("vb-gate-pending");
   }
 
-  function showPendingOverlay() {
-    showOverlay("수업 상태 확인 중", "관리자 게이트 상태를 확인하고 있습니다. 잠시만 기다려 주세요.");
-  }
-
   function showOverlay(title, message) {
     if (!document.body) {
       document.addEventListener("DOMContentLoaded", function () {
@@ -55,13 +58,19 @@
       }, { once: true });
       return;
     }
+
     var root = document.getElementById("vbGateOverlay");
     if (!root) {
       root = document.createElement("div");
       root.id = "vbGateOverlay";
       document.body.appendChild(root);
     }
+
     root.innerHTML = '<div class="card"><h2>' + escapeHtml(title) + '</h2><p>' + escapeHtml(message) + '</p></div>';
+  }
+
+  function showPendingOverlay() {
+    showOverlay("수업 상태 확인 중", "관리자 게이트 상태를 확인하고 있습니다. 잠시만 기다려 주세요.");
   }
 
   function hideOverlay() {
@@ -108,22 +117,15 @@
     else lockPage(reason || "현재 수업이 닫혀 있습니다.");
   }
 
-  async function prefetchGate(gateRef) {
-    try {
-      var snap = await gateRef.get({ source: "server" });
-      var open = !!(snap.exists && snap.data() && snap.data().open === true);
-      console.info("[gate] prefetch ok/open=" + open);
-      if (open) applyGateState(true);
-      else if (!snap.exists) applyGateState(false, "관리자가 아직 수업을 열지 않았습니다.");
-      else applyGateState(false, "현재 수업이 닫혀 있습니다.");
-      return true;
-    } catch (err) {
-      console.warn("[gate] prefetch failed:", err);
-      if (prefetchRequired) {
-        applyGateState(false, "서버 상태를 확인할 수 없어 접근이 잠겨 있습니다.");
-      }
-      return false;
-    }
+  function sanitizeBase(base) {
+    return String(base || "").replace(/\/+$/, "");
+  }
+
+  function buildGateUrl() {
+    var base = sanitizeBase(apiBaseOverride || window.GATE_API_BASE || "");
+    var classId = String(window.CLASS_ID || "public-class-1").trim() || "public-class-1";
+    if (!base) throw new Error("GATE_API_BASE missing");
+    return base + "/gate?classId=" + encodeURIComponent(classId);
   }
 
   function loadScript(src) {
@@ -151,58 +153,84 @@
     });
   }
 
+  function gateMetaSuffix(data) {
+    var parts = [];
+    if (typeof data.updatedAt === "number" && data.updatedAt > 0) {
+      try {
+        parts.push(new Date(data.updatedAt).toLocaleString("ko-KR"));
+      } catch (_) {
+        // no-op
+      }
+    }
+    if (data.note) parts.push("메모: " + String(data.note));
+    return parts.length ? " (" + parts.join(" / ") + ")" : "";
+  }
+
+  async function fetchGateState() {
+    var res = await fetch(gateUrl, {
+      method: "GET",
+      cache: "no-store",
+      headers: { "Accept": "application/json" }
+    });
+    if (!res.ok) {
+      throw new Error("GET /gate failed: HTTP " + res.status);
+    }
+    var data = await res.json();
+    if (!data || typeof data.open !== "boolean") {
+      throw new Error("invalid gate response");
+    }
+    return data;
+  }
+
+  async function checkGate(initial) {
+    try {
+      var data = await fetchGateState();
+      consecutiveFails = 0;
+      if (data.open === true) {
+        applyGateState(true);
+      } else {
+        applyGateState(false, "현재 수업이 닫혀 있습니다." + gateMetaSuffix(data));
+      }
+      return true;
+    } catch (err) {
+      consecutiveFails += 1;
+      console.warn("[gate] poll failed:", err);
+      if (initial || consecutiveFails >= failThreshold) {
+        applyGateState(false, "서버 상태를 확인할 수 없어 접근이 잠겨 있습니다.");
+      }
+      return false;
+    }
+  }
+
+  function startPolling() {
+    if (pollTimer) clearInterval(pollTimer);
+    pollTimer = setInterval(function () {
+      void checkGate(false);
+    }, pollMs);
+  }
+
   async function initGate() {
     ensureGateStyle();
     setPending(true);
     showPendingOverlay();
 
     try {
-      var bootTasks = [];
-      if (!window.firebase || !firebase.firestore) {
-        bootTasks.push((async function () {
-          await loadScript(firebaseAppUrl);
-          await loadScript(firebaseFirestoreUrl);
-        })());
+      if (!window.GATE_API_BASE) {
+        await loadScript(configPath);
       }
-      if (!window.FB_CONFIG) {
-        bootTasks.push(loadScript(configPath));
-      }
-      if (bootTasks.length) {
-        await Promise.all(bootTasks);
-      }
-
-      if (!window.firebase || !window.FB_CONFIG) {
-        throw new Error("firebase config missing");
-      }
-
-      if (!firebase.apps.length) {
-        firebase.initializeApp(window.FB_CONFIG);
-      }
-
-      var db = firebase.firestore();
-      var classId = String(window.CLASS_ID || "public-class-1").trim() || "public-class-1";
-      var gateRef = db.collection("classes").doc(classId).collection("control").doc("gate");
-      var prefetchOk = await prefetchGate(gateRef);
-      if (!prefetchOk && prefetchRequired) return;
-
-      gateRef.onSnapshot(function (snap) {
-        if (!snap.exists) applyGateState(false, "관리자가 아직 수업을 열지 않았습니다.");
-        else applyGateState(snap.data() && snap.data().open === true, "현재 수업이 닫혀 있습니다.");
-      }, function (err) {
-        console.warn("[gate] snapshot failed:", err);
-        if (!prefetchOk || lastGateOpen === null) {
-          applyGateState(false, "서버 상태를 확인할 수 없어 접근이 잠겨 있습니다.");
-          return;
-        }
-        var msg = "서버 상태를 확인할 수 없어 접근이 잠겨 있습니다.";
-        if (err && err.message) msg += " (" + err.message + ")";
-        applyGateState(false, msg);
-      });
+      gateUrl = buildGateUrl();
+      console.info("[gate] using api:", gateUrl);
+      await checkGate(true);
+      startPolling();
     } catch (err) {
       console.warn("[gate] init failed:", err);
       applyGateState(false, "게이트 확인에 실패해 접근이 차단되었습니다.");
     }
   }
+
+  window.addEventListener("beforeunload", function () {
+    if (pollTimer) clearInterval(pollTimer);
+  });
 
   initGate();
 })();

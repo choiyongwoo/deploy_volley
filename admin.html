@@ -13,7 +13,6 @@
       --muted: #64748b;
       --ok: #16a34a;
       --danger: #dc2626;
-      --accent: #2563eb;
     }
     * { box-sizing: border-box; }
     body {
@@ -43,7 +42,6 @@
       cursor: pointer;
     }
     .btn:disabled { opacity: .45; cursor: not-allowed; }
-    .btn.primary { background: #eaf1ff; border-color: #bcd1ff; }
     .btn.open { background: rgba(22,163,74,.12); border-color: rgba(22,163,74,.35); }
     .btn.close { background: rgba(220,38,38,.12); border-color: rgba(220,38,38,.35); }
     .pill {
@@ -61,12 +59,15 @@
     .state.closed { color: var(--danger); }
     .muted { color: var(--muted); font-size: 13px; }
     .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
-    .note {
+    .textInput, .note {
       width: 100%;
       border: 1px solid #cfe0ff;
       border-radius: 12px;
       padding: 10px 12px;
       font: inherit;
+      background: #fff;
+    }
+    .note {
       min-height: 80px;
       resize: vertical;
     }
@@ -79,14 +80,14 @@
     <div class="card">
       <div class="row sp">
         <div>
-          <div><span class="pill">관리자 계정</span></div>
-          <div id="authLine" class="muted" style="margin-top:8px;">로그인 확인 중...</div>
-          <div id="roleLine" class="muted">권한 확인 중...</div>
+          <div><span class="pill">관리자 인증</span></div>
+          <div id="authLine" class="muted" style="margin-top:8px;">비밀번호 방식</div>
+          <div id="classLine" class="muted"></div>
         </div>
-        <div class="row">
-          <button id="loginBtn" class="btn primary" type="button">Google 로그인</button>
-          <button id="logoutBtn" class="btn" type="button">로그아웃</button>
-        </div>
+      </div>
+      <div style="margin-top:10px;">
+        <label class="muted" for="passwordInput">관리자 비밀번호</label>
+        <input id="passwordInput" class="textInput" type="password" autocomplete="current-password" placeholder="비밀번호 입력" />
       </div>
     </div>
 
@@ -96,9 +97,10 @@
           <div><span class="pill">수업 게이트</span></div>
           <div id="gateState" class="state closed" style="margin-top:8px;">잠김</div>
           <div id="gateMeta" class="muted">상태를 읽는 중...</div>
-          <div class="muted" style="margin-top:4px;">경로: <span class="mono" id="gatePath"></span></div>
+          <div class="muted" style="margin-top:4px;">API: <span class="mono" id="gatePath"></span></div>
         </div>
         <div class="row">
+          <button id="refreshBtn" class="btn" type="button">새로고침</button>
           <button id="openBtn" class="btn open" type="button">수업 열기 (ON)</button>
           <button id="closeBtn" class="btn close" type="button">수업 닫기 (OFF)</button>
         </div>
@@ -113,49 +115,37 @@
     </div>
   </div>
 
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
-  <script src="./firebase.config.js?v=20260216-3"></script>
+  <script src="./firebase.config.js?v=20260216-4"></script>
   <script>
-    const loginBtn = document.getElementById("loginBtn");
-    const logoutBtn = document.getElementById("logoutBtn");
+    const passwordInput = document.getElementById("passwordInput");
     const openBtn = document.getElementById("openBtn");
     const closeBtn = document.getElementById("closeBtn");
-    const authLine = document.getElementById("authLine");
-    const roleLine = document.getElementById("roleLine");
+    const refreshBtn = document.getElementById("refreshBtn");
     const gateState = document.getElementById("gateState");
     const gateMeta = document.getElementById("gateMeta");
     const gatePath = document.getElementById("gatePath");
+    const classLine = document.getElementById("classLine");
     const infoLine = document.getElementById("infoLine");
     const noteInput = document.getElementById("noteInput");
 
-    if (!firebase.apps.length) firebase.initializeApp(window.FB_CONFIG);
-
-    const db = firebase.firestore();
-    const auth = firebase.auth();
-    const provider = new firebase.auth.GoogleAuthProvider();
-
     const classId = String(window.CLASS_ID || "public-class-1").trim() || "public-class-1";
-    const adminEmails = (() => {
-      const list = Array.isArray(window.ADMIN_EMAILS) ? window.ADMIN_EMAILS : [];
-      const normalized = list.map((x) => String(x || "").trim().toLowerCase()).filter(Boolean);
-      if (normalized.length > 0) return normalized;
-      const single = String(window.ADMIN_EMAIL || "").trim().toLowerCase();
-      return single ? [single] : [];
-    })();
-    const adminEmailText = adminEmails.join(", ");
-    const gateRef = db.collection("classes").doc(classId).collection("control").doc("gate");
+    const base = String(window.GATE_API_BASE || "").trim().replace(/\/+$/, "");
+    const gateUrl = base ? `${base}/gate?classId=${encodeURIComponent(classId)}` : "";
 
-    gatePath.textContent = `classes/${classId}/control/gate`;
+    classLine.textContent = `CLASS_ID: ${classId}`;
+    gatePath.textContent = gateUrl || "GATE_API_BASE 미설정";
 
-    let currentUser = null;
-    let isAdmin = false;
+    let pollTimer = null;
 
-    function fmtTime(ts) {
-      if (!ts) return "-";
-      const d = ts.toDate ? ts.toDate() : new Date(ts);
-      return d.toLocaleString("ko-KR");
+    function setButtonsDisabled(disabled) {
+      openBtn.disabled = disabled || !gateUrl;
+      closeBtn.disabled = disabled || !gateUrl;
+      refreshBtn.disabled = disabled || !gateUrl;
+    }
+
+    function fmtTime(epochMs) {
+      if (!Number.isFinite(epochMs) || epochMs <= 0) return "-";
+      return new Date(epochMs).toLocaleString("ko-KR");
     }
 
     function setGateUi(open, metaText) {
@@ -165,90 +155,88 @@
       gateMeta.textContent = metaText;
     }
 
-    function updateAuthUi() {
-      authLine.textContent = currentUser
-        ? `로그인: ${currentUser.email || currentUser.uid}`
-        : "로그인: 없음";
-
-      if (adminEmails.length === 0) {
-        roleLine.textContent = "경고: firebase.config.js의 ADMIN_EMAILS/ADMIN_EMAIL이 비어 있습니다.";
-      } else if (isAdmin) {
-        roleLine.textContent = `권한: 관리자 (${adminEmailText})`;
-      } else {
-        roleLine.textContent = `권한: 일반 사용자 (관리자: ${adminEmailText})`;
-      }
-
-      loginBtn.disabled = !!currentUser;
-      logoutBtn.disabled = !currentUser;
-      openBtn.disabled = !isAdmin;
-      closeBtn.disabled = !isAdmin;
-
-      infoLine.textContent = isAdmin
-        ? "관리자 권한으로 ON/OFF를 변경할 수 있습니다."
-        : "관리자 계정으로 로그인해야 ON/OFF를 변경할 수 있습니다.";
+    async function fetchGate() {
+      if (!gateUrl) throw new Error("GATE_API_BASE가 설정되지 않았습니다.");
+      const res = await fetch(gateUrl, {
+        method: "GET",
+        cache: "no-store",
+        headers: { "Accept": "application/json" }
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      if (!data || typeof data.open !== "boolean") throw new Error("응답 형식 오류");
+      return data;
     }
 
-    auth.onAuthStateChanged((user) => {
-      currentUser = user;
-      const email = String(user?.email || "").toLowerCase();
-      isAdmin = !!(email && adminEmails.includes(email));
-      updateAuthUi();
-    });
+    function gateMetaText(data) {
+      const at = fmtTime(Number(data.updatedAt || 0));
+      const note = data.note ? ` / 메모: ${data.note}` : "";
+      return `최근 변경: ${at}${note}`;
+    }
 
-    gateRef.onSnapshot((snap) => {
-      if (!snap.exists) {
-        setGateUi(false, "문서 없음 (기본 잠김)");
-        return;
-      }
-      const d = snap.data() || {};
-      const open = d.open === true;
-      const by = d.updatedByEmail || d.updatedByUid || "-";
-      const at = fmtTime(d.updatedAt);
-      const note = d.note ? ` / 메모: ${d.note}` : "";
-      setGateUi(open, `최근 변경: ${by} / ${at}${note}`);
-    }, (err) => {
-      setGateUi(false, "게이트 상태를 읽을 수 없습니다.");
-      infoLine.textContent = `오류: ${err.message || err}`;
-    });
-
-    loginBtn.addEventListener("click", async () => {
+    async function refreshGate() {
       try {
-        await auth.signInWithPopup(provider);
+        const data = await fetchGate();
+        setGateUi(data.open === true, gateMetaText(data));
+        infoLine.textContent = "게이트 상태를 확인했습니다.";
       } catch (err) {
-        alert(`로그인 실패: ${err.message || err}`);
+        setGateUi(false, "게이트 상태를 읽을 수 없습니다.");
+        infoLine.textContent = `오류: ${err.message || err}`;
       }
-    });
-
-    logoutBtn.addEventListener("click", async () => {
-      try {
-        await auth.signOut();
-      } catch (err) {
-        alert(`로그아웃 실패: ${err.message || err}`);
-      }
-    });
+    }
 
     async function setGate(open) {
-      if (!isAdmin || !currentUser) {
-        alert("관리자 계정으로 로그인해야 합니다.");
+      const password = String(passwordInput.value || "").trim();
+      if (!password) {
+        alert("관리자 비밀번호를 입력하세요.");
+        passwordInput.focus();
         return;
       }
+      if (!base) {
+        alert("GATE_API_BASE가 설정되지 않았습니다.");
+        return;
+      }
+
+      setButtonsDisabled(true);
       try {
-        await gateRef.set({
-          open: !!open,
-          note: (noteInput.value || "").trim(),
-          updatedByUid: currentUser.uid,
-          updatedByEmail: currentUser.email || "",
-          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        }, { merge: true });
+        const res = await fetch(`${base}/gate`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Accept": "application/json" },
+          body: JSON.stringify({
+            classId,
+            open: !!open,
+            note: (noteInput.value || "").trim(),
+            password
+          })
+        });
+
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          const msg = data && data.error ? data.error : `HTTP ${res.status}`;
+          throw new Error(msg);
+        }
+
+        await refreshGate();
+        infoLine.textContent = open ? "수업을 열었습니다." : "수업을 닫았습니다.";
       } catch (err) {
         alert(`게이트 변경 실패: ${err.message || err}`);
+      } finally {
+        setButtonsDisabled(false);
       }
     }
 
+    refreshBtn.addEventListener("click", () => { void refreshGate(); });
     openBtn.addEventListener("click", () => { void setGate(true); });
     closeBtn.addEventListener("click", () => { void setGate(false); });
 
-    updateAuthUi();
+    async function startPolling() {
+      await refreshGate();
+      if (pollTimer) clearInterval(pollTimer);
+      pollTimer = setInterval(() => { void refreshGate(); }, 2000);
+    }
+
+    setButtonsDisabled(false);
+    void startPolling();
   </script>
 </body>
 </html>

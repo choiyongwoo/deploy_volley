@@ -11,9 +11,6 @@ window.FB_CONFIG = {
 // 공유 단위(문서 경로): classes/{CLASS_ID}/states/*
 window.CLASS_ID = "public-class-1";
 
-// 관리자 Google 계정(소문자 이메일 권장)
-window.ADMIN_EMAIL = "xhtnsdl1904@gmail.com";
-window.ADMIN_EMAILS = [
-  "xhtnsdl1904@gmail.com",
-  "chldyddn98@gmail.com"
-];
+// Cloudflare Worker 게이트 API 주소
+// 예: https://volley-gate.your-account.workers.dev
+window.GATE_API_BASE = "https://volley-gate.volley-gate-choi.workers.dev";

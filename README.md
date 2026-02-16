@@ -34,23 +34,44 @@ python3 -m http.server 8080
 
 GitHub Pages 캐시로 인해 일반 새로고침에서 예전 JS가 남을 수 있으므로, 주요 스크립트 URL에 `?v=...`를 사용합니다.
 
-- 현재 버전: `20260216-3`
+- 현재 버전: `20260216-4`
 - 다음 배포에서 `gate.js` 또는 `firebase.config.js`를 수정했다면, `index.html`, `practice/index.html`, `volleyball/index.html`, `admin.html`의 `?v=` 값을 함께 증가시키세요.
 
-## Firebase 연동/게이트 설정
+## 게이트 운영 (Cloudflare Worker + KV)
 
-코드에는 Firestore 동기화 + 관리자 ON/OFF 게이트가 연결되어 있습니다.
+게이트는 Firebase가 아니라 Cloudflare Worker API를 사용합니다.
+
+1. `worker/` 폴더 기준으로 Worker 배포
+2. KV namespace 생성 후 `worker/wrangler.toml`에 ID 입력
+3. `ADMIN_PASSWORD` secret 등록
+4. `npx wrangler deploy`
+5. Worker URL을 `firebase.config.js`의 `window.GATE_API_BASE`에 입력
+
+상세 절차는 `worker/README.md`를 참고하세요.
+
+### 게이트 API
+
+- `GET /gate?classId=public-class-1`
+  - 응답: `{ open, updatedAt, note }`
+- `POST /gate`
+  - 요청: `{ classId, open, note, password }`
+
+학생 페이지는 `gate.js`에서 2초 폴링으로 게이트 상태를 확인합니다.
+
+- 초기 조회 실패: 즉시 잠금(Fail-Closed)
+- 운영 중 연속 실패 3회: 잠금
+
+## Firebase 연동 (기록 저장 전용)
+
+기록 데이터 동기화는 기존 Firestore를 계속 사용합니다.
 
 1. Firebase 콘솔에서 프로젝트/웹앱 생성
 2. Firestore Database 생성
 3. 루트 `firebase.config.js`에 Web SDK 값 입력
 4. `window.CLASS_ID` 확인 (기본: `public-class-1`)
-5. `window.ADMIN_EMAILS`(또는 `window.ADMIN_EMAIL`)에 관리자 Google 이메일 입력
-6. (선택) `window.__VB_GATE_CONFIG__.prefetchRequired = true`를 페이지에서 설정하면, 선조회 실패 시 즉시 잠금으로 동작합니다. 기본값은 `false`입니다.
 
 ### Firestore 문서 경로
 
-- `classes/{CLASS_ID}/control/gate` (관리자 게이트)
 - `classes/{CLASS_ID}/states/app_shell`
 - `classes/{CLASS_ID}/states/practice_slot_{slot}`
 - `classes/{CLASS_ID}/states/scoreboard`
@@ -59,53 +80,16 @@ GitHub Pages 캐시로 인해 일반 새로고침에서 예전 JS가 남을 수 
 
 저장소의 `firestore.rules` 내용을 Firebase 콘솔 Rules 탭에 적용하세요.
 
-관리자 게이트 규칙 핵심:
+현재 정책:
 
-- `control/gate`: 읽기 가능, 쓰기는 관리자만
-- `states/*`: 관리자 또는 gate가 열린 경우에만 read/write 가능
+- `classes/{CLASS_ID}/states/*` read/write 허용
+- 게이트 문서는 Firestore를 사용하지 않음
 
 ## 관리자 운영 흐름
 
 1. `admin.html` 접속
-2. 관리자 Google 계정으로 로그인
-3. `수업 열기 (ON)` 클릭 시 학생 페이지 입장 허용
-4. `수업 닫기 (OFF)` 클릭 시 즉시 잠금
-
-기본 정책:
-
-- gate 문서가 없거나 `open=false`이면 학생 페이지 차단
-- 게이트 상태 확인 실패 시 차단(기본 거부)
-
-## 참고 Rules 템플릿
-
-```txt
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    function isAdmin() {
-      return request.auth != null
-        && request.auth.token.email_verified == true
-        && request.auth.token.email in [\"teacher@example.com\"];
-    }
-
-    function gateOpen(classId) {
-      return exists(/databases/$(database)/documents/classes/$(classId)/control/gate)
-        && get(/databases/$(database)/documents/classes/$(classId)/control/gate).data.open == true;
-    }
-
-    match /classes/{classId}/control/{docId} {
-      allow read: if docId == \"gate\";
-      allow write: if docId == \"gate\" && isAdmin();
-    }
-
-    match /classes/{classId}/states/{docId} {
-      allow read, write: if isAdmin() || gateOpen(classId);
-    }
-  }
-}
-```
-
-주의: `teacher@example.com`은 실제 관리자 이메일로 바꾸고, `firebase.config.js`의 `window.ADMIN_EMAIL`과 동일하게 맞추세요.
+2. 관리자 비밀번호 입력
+3. `수업 열기 (ON)` 또는 `수업 닫기 (OFF)` 클릭
 
 ## 현재 저장 키
 
