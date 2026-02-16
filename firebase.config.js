@@ -15,5 +15,5 @@ window.CLASS_ID = "public-class-1";
 window.ADMIN_EMAIL = "xhtnsdl1904@gmail.com";
 window.ADMIN_EMAILS = [
   "xhtnsdl1904@gmail.com",
-  "chlydyddn98@gmail.com"
+  "chldyddn98@gmail.com"
 ];
