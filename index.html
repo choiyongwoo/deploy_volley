@@ -1,0 +1,462 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>🏐배구수업🏐</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
+
+  <style>
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans KR",sans-serif;background:#f5f8ff;color:#0f172a;}
+    .wrap{max-width:1100px;margin:0 auto;padding:16px;}
+    .card{background:#fff;border:1px solid #dbe7ff;border-radius:14px;padding:14px;box-shadow:0 10px 26px rgba(15,23,42,.08);}
+    .title{font-size:28px;font-weight:950;margin:6px 0 14px;}
+    .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
+    .sp{justify-content:space-between;}
+    .btn{
+      padding:12px 14px;border:1px solid #cfe0ff;background:#fff;border-radius:12px;
+      font-weight:950;cursor:pointer;box-shadow:0 6px 16px rgba(15,23,42,.06);
+      transition:transform .12s ease, filter .12s ease;
+    }
+    .btn:hover{filter:brightness(1.03);}
+    .btn:active{transform:scale(.985);}
+    .bigGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;}
+    @media (max-width: 720px){ .bigGrid{grid-template-columns:1fr;} }
+
+    .bigBtn{
+      min-height:78px;font-size:20px;
+      border:1px solid #cfe0ff;border-radius:16px;background:linear-gradient(180deg,#ffffff,#f7fbff);
+      display:flex;align-items:center;justify-content:center;
+      font-weight:950;cursor:pointer;
+      box-shadow:0 12px 26px rgba(15,23,42,.08);
+    }
+    .bigBtn:hover{filter:brightness(1.02);}
+    .bigBtn:active{transform:scale(.99);}
+
+    .pill{font-size:12px;font-weight:950;padding:4px 10px;border-radius:999px;border:1px solid #cfe0ff;background:#f1f7ff;color:#1e3a8a;}
+    input[type="text"]{padding:10px 12px;border:1px solid #cfe0ff;border-radius:12px;font-weight:900;}
+    .hint{color:#64748b;font-size:12px;margin-top:8px;line-height:1.5;}
+
+    /* 화면 전환 */
+    .view{display:none;}
+    .view.on{display:block;}
+
+    /* 기능연습 3개 버튼 영역 */
+    .practiceGrid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit, minmax(240px, 1fr));
+  gap:12px;
+  margin-top:12px;
+}
+    @media (max-width: 980px){ .practiceGrid{grid-template-columns:1fr;} }
+
+    .pCard{border:1px solid #dbe7ff;border-radius:14px;padding:12px;background:#fff;}
+    .pTop{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px;}
+    .pTitle{font-weight:950;}
+    .pBtn{width:100%;min-height:52px;font-size:18px;border-radius:14px;border:1px solid #cfe0ff;background:linear-gradient(135deg, rgba(37,99,235,.16), rgba(6,182,212,.10));font-weight:950;cursor:pointer;}
+    .pBtn{ touch-action: manipulation; user-select:none; }
+    .pBtn:hover{filter:brightness(1.02);}
+    .pBtn:active{transform:scale(.99);}
+
+    /* iframe 화면 */
+    .frameWrap{position:fixed;inset:0;background:#0f172a20;display:none;}
+    .frameWrap.on{display:block;}
+    .frameBar{
+      position:absolute;left:0;right:0;top:0;
+      background:#ffffffcc;backdrop-filter: blur(10px);
+      border-bottom:1px solid #dbe7ff;
+      padding:10px 12px;
+      display:flex;gap:10px;align-items:center;justify-content:space-between;
+    }
+    .frameBar .left{display:flex;gap:10px;align-items:center;}
+    .frameTitle{font-weight:950;}
+    iframe{
+      position:absolute;left:0;right:0;top:54px;bottom:0;
+      width:100%;height:calc(100% - 54px);
+      border:none;background:#fff;
+    }
+  /* 폰트 전체 적용 */
+body{
+  font-family: "Jua", system-ui, -apple-system, "Noto Sans KR", sans-serif;
+}
+
+/* 타이틀/헤더류 가운데 정렬 */
+.title,
+.teamTitle,
+.sideTitle,
+.logTitle,
+.pTitle,
+.frameTitle,
+.modalTitle,
+h1,h2,h3{
+  text-align: center;
+}
+
+/* 제목+뒤로버튼이 같은 줄에 있을 때도 제목이 가운데로 오게 */
+.row.sp .title{ flex: 1; text-align: center; }
+
+/* 홈 화면 4개 버튼(수업내용/기능연습/실전게임/수행평가)도 주아체 적용 */
+.bigBtn, .btn, button{
+  font-family: "Jua", system-ui, -apple-system, "Noto Sans KR", sans-serif;
+}
+/* 탭 상단바: 홈버튼 왼쪽 + 제목 가운데 정렬 */
+.topBar{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  margin-bottom:10px;
+}
+.topBar .title{
+  flex:1;
+  text-align:center;
+  margin:0;
+}
+.topBar .spacer{
+  width: 92px;  /* 홈버튼 폭 맞추는 용(제목 진짜 가운데) */
+}
+
+/* (  ) 입력칸 포함: 입력 글자도 주아체 */
+input, textarea, select, option{
+  font-family:"Jua", system-ui, -apple-system, "Noto Sans KR", sans-serif;
+}
+/* iframe 전체화면 창 */
+.frameWrap{position:fixed;inset:0;background:#0f172a20;display:none;z-index:9999;}
+.frameWrap.on{display:block;}
+.frameBar{
+  position:absolute;left:0;right:0;top:0;
+  background:#ffffffcc;backdrop-filter: blur(10px);
+  border-bottom:1px solid #dbe7ff;
+  padding:10px 12px;
+  display:flex;gap:10px;align-items:center;justify-content:space-between;
+}
+.frameBar .left{display:flex;gap:10px;align-items:center;}
+.frameTitle{font-weight:950;}
+iframe#frame{
+  position:absolute;left:0;right:0;top:54px;bottom:0;
+  width:100%;height:calc(100% - 54px);
+  border:none;background:#fff;
+}
+
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <!-- HOME -->
+    <section id="homeView" class="view on">
+      <div class="title">🏐배구수업🏐</div>
+
+      <div class="card">
+        <div class="bigGrid">
+          <button class="bigBtn" data-go="lesson">수업내용</button>
+          <button class="bigBtn" data-go="practice">기능연습</button>
+          <button class="bigBtn" data-go="game">실전게임</button>
+          <button class="bigBtn" data-go="eval">수행평가</button>
+        </div>
+        <div class="hint">※ 지금은 “기능연습”만 연결해둘게. 나머지는 “준비중” 화면으로만 이동.</div>
+      </div>
+    </section>
+
+    <!-- 실전게임 화면 -->
+<section id="gameView" class="view">
+  <div class="topBar">
+    <button class="btn" id="gameHomeBtn" type="button">🏠 홈</button>
+    <div class="title">실전게임</div>
+    <div class="spacer"></div>
+  </div>
+
+  <div class="card">
+    <div class="hint">기록원을 누르면 스코어판이 열립니다.</div>
+    <button class="bigBtn" id="recordBtn" type="button">기록원</button>
+  </div>
+</section>
+
+<!-- PRACTICE -->
+<section id="practiceView" class="view">
+  <div class="topBar">
+    <button class="btn" id="backHomeBtn" type="button">← 홈</button>
+    <div class="title">기능연습</div>
+    <div class="spacer"></div>
+  </div>
+
+  <div class="card">
+    <div class="row" style="align-items:center;">
+      <span class="pill">제목</span>
+      <input id="schoolName" type="text" placeholder="(   )"
+       style="width:180px;text-align:center;font-size:22px;font-weight:950;" />
+      <div style="font-size:22px;font-weight:950;">기능 연습 기록</div>
+    </div>
+
+    <div class="hint">※ 버튼을 누르면 practice/index.html이 열려요. (Shift+클릭 또는 길게 누르면 이름 변경)</div>
+
+    <div class="practiceGrid" id="practiceGrid"></div>
+
+    <div style="margin-top:12px; display:flex; gap:10px; justify-content:flex-end;">
+      <button class="btn" id="removePracticeBtn" type="button">- 버튼 삭제</button>
+      <button class="btn" id="addPracticeBtn" type="button">+ 버튼 추가</button>
+    </div>
+  </div>
+</section>
+
+<!-- READY (placeholder) -->
+<section id="readyView" class="view">
+  <div class="topBar">
+    <button class="btn" id="backHomeBtn2" type="button">← 홈</button>
+    <div class="title" id="readyTitle">준비중</div>
+    <div class="spacer"></div>
+  </div>
+
+  <div class="card">
+    <div style="font-weight:900;font-size:18px;">이 화면은 아직 준비중이야.</div>
+    <div class="hint">원하면 “수업 내용 / 실전게임 / 수행평가”도 같은 방식으로 탭을 만들어서 연결해줄게.</div>
+  </div>
+</section>
+
+
+  <!-- 기능연습 화면(기존 index.html을 iframe으로 띄움) -->
+  <div id="frameWrap" class="frameWrap">
+    <div class="frameBar">
+      <div class="left">
+        <button class="btn" id="frameBackBtn" type="button">← 뒤로</button>
+        <div class="frameTitle" id="frameTitle">기능 연습</div>
+      </div>
+    </div>
+    <iframe id="frame" src=""></iframe>
+  </div>
+
+<script>
+  const APP_KEY = "vb_class_app_shell_v1";
+
+  function saveApp(){ localStorage.setItem(APP_KEY, JSON.stringify(appState)); }
+  function loadApp(){ try { return JSON.parse(localStorage.getItem(APP_KEY)); } catch { return null; } }
+
+  const homeView = document.getElementById("homeView");
+  const gameView = document.getElementById("gameView");
+  const gameHomeBtn = document.getElementById("gameHomeBtn");
+  const recordBtn = document.getElementById("recordBtn");
+
+  const frameWrap = document.getElementById("frameWrap");
+  const frame = document.getElementById("frame");
+  const frameBackBtn = document.getElementById("frameBackBtn");
+  const frameTitle = document.getElementById("frameTitle");
+  const practiceView = document.getElementById("practiceView");
+  const readyView = document.getElementById("readyView");
+  const readyTitle = document.getElementById("readyTitle");
+
+  const backHomeBtn = document.getElementById("backHomeBtn");
+  const backHomeBtn2 = document.getElementById("backHomeBtn2");
+
+  const schoolName = document.getElementById("schoolName");
+  const practiceGrid = document.getElementById("practiceGrid");
+  const addPracticeBtn = document.getElementById("addPracticeBtn");
+  const removePracticeBtn = document.getElementById("removePracticeBtn");
+
+  const frameOpenNewTab = document.getElementById("frameOpenNewTab");
+
+  const PRACTICE_SRC = "./practice/index.html";
+  const SCOREBOARD_SRC = "./volleyball/index.html";
+
+// 실전게임 화면 -> 홈
+gameHomeBtn.addEventListener("click", ()=> show(homeView));
+
+// 기록원 버튼 -> 스코어판 열기
+recordBtn.addEventListener("click", ()=>{
+  frameTitle.textContent = "실전게임 - 기록원";
+  frame.src = SCOREBOARD_SRC;   // 기존 iframe 재사용
+  frameWrap.classList.add("on");
+});
+
+  const loaded = loadApp();
+
+// 기존 practiceNames(구버전) → items(신버전) 마이그레이션
+function migrateToItems(old){
+  if (!old) return null;
+
+  if (Array.isArray(old.items)) return old;
+
+  const names = Array.isArray(old.practiceNames) ? old.practiceNames : [];
+  const items = names.length
+    ? names.map((nm, i)=>({ id: i+1, name: nm || `기능연습 #${i+1}` }))
+    : [
+        { id: 1, name: "언더/오버/서브 향상도" },
+        { id: 2, name: "기능연습 #2" },
+        { id: 3, name: "기능연습 #3" },
+      ];
+
+  const nextId = Math.max(...items.map(x=>x.id)) + 1;
+
+  return {
+    school: old.school || "",
+    items,
+    nextId
+  };
+}
+
+const appState = migrateToItems(loaded) ?? {
+  school: "",
+  items: [
+    { id: 1, name: "언더/오버/서브 향상도" },
+    { id: 2, name: "기능연습 #2" },
+    { id: 3, name: "기능연습 #3" },
+  ],
+  nextId: 4
+};
+saveApp();
+
+  function show(view){
+  document.querySelectorAll(".view").forEach(v => v.classList.remove("on"));
+  view.classList.add("on");
+}
+
+ document.querySelectorAll("[data-go]").forEach(btn=>{
+  btn.addEventListener("click", ()=>{
+    const to = btn.dataset.go;
+
+    if (to === "practice") { show(practiceView); return; }
+    if (to === "game") { show(gameView); return; }
+
+    // 나머지는 준비중 화면
+    readyTitle.textContent =
+      (to==="lesson") ? "수업 내용" :
+      (to==="eval") ? "수행평가" :
+      "준비중";
+    show(readyView);
+  });
+});
+
+  backHomeBtn.addEventListener("click", ()=>show(homeView));
+  backHomeBtn2.addEventListener("click", ()=>show(homeView));
+
+  // 학교명 입력 저장
+  schoolName.value = appState.school || "";
+  schoolName.addEventListener("input", ()=>{
+    appState.school = schoolName.value;
+    saveApp();
+  });
+
+  renderPracticeGrid();
+
+    // #1/#2/#3 클릭 → 기존 index.html 띄우기 (volleyball(2)의 index.html 그대로 사용)
+  // (id로 아이템 찾기)
+function getItemById(id){
+  return appState.items.find(x => x.id === id);
+}
+
+// index.html 열기(모든 버튼이 동일 화면 연결)
+function openPracticeById(id){
+  const item = getItemById(id);
+  const name = item?.name || "기능 연습";
+
+  currentOpenSlot = id;
+  frameTitle.textContent = name;
+  frame.src = `${PRACTICE_SRC}?slot=${encodeURIComponent(id)}`;
+  frameWrap.classList.add("on");
+}
+
+// 이름 바꾸기(Shift+클릭 / 롱프레스)
+function renamePracticeById(id){
+  const item = getItemById(id);
+  if (!item) return;
+
+  const next = prompt("버튼 이름을 입력하세요", item.name || "");
+  if (next === null) return;
+
+  const v = String(next).trim();
+  if (!v) return;
+
+  item.name = v;
+  saveApp();
+  renderPracticeGrid();
+}
+
+// 버튼 그리드 렌더
+let suppressClickUntil = 0;
+let currentOpenSlot = null;
+
+
+function renderPracticeGrid(){
+  practiceGrid.innerHTML = appState.items.map((it, idx) => `
+    <div class="pCard">
+      <div class="pTop">
+        <div class="pTitle">#${idx+1}</div>
+      </div>
+      <button class="pBtn" data-id="${it.id}" type="button">${it.name || `기능연습 #${idx+1}`}</button>
+    </div>
+  `).join("");
+
+  // 이벤트 연결(Shift+클릭 / 롱프레스)
+  practiceGrid.querySelectorAll(".pBtn").forEach(btn => {
+    const id = Number(btn.dataset.id);
+    let timer = null;
+
+    // Shift+클릭: 이름 변경
+    btn.addEventListener("click", (e) => {
+      // 롱프레스 직후 클릭 방지
+      if (Date.now() < suppressClickUntil) return;
+
+      if (e.shiftKey) {
+        e.preventDefault();
+        renamePracticeById(id);
+        return;
+      }
+      openPracticeById(id);
+    });
+
+    // 롱프레스: 이름 변경(태블릿 포함)
+    const start = (e) => {
+      // 마우스 오른쪽 버튼 등 제외
+      if (e.pointerType === "mouse" && e.button !== 0) return;
+
+      timer = setTimeout(() => {
+        suppressClickUntil = Date.now() + 900;
+        renamePracticeById(id);
+      }, 600);
+    };
+
+    const end = () => {
+      if (timer) clearTimeout(timer);
+      timer = null;
+    };
+
+    btn.addEventListener("pointerdown", start);
+    btn.addEventListener("pointerup", end);
+    btn.addEventListener("pointercancel", end);
+    btn.addEventListener("pointerleave", end);
+  });
+}
+
+// 버튼 추가
+addPracticeBtn.addEventListener("click", () => {
+  const id = appState.nextId || 1;
+  appState.nextId = id + 1;
+
+  appState.items.push({ id, name: `기능연습 #${appState.items.length + 1}` });
+  saveApp();
+  renderPracticeGrid();
+});
+
+removePracticeBtn.addEventListener("click", () => {
+  if (!appState.items || appState.items.length === 0) return;
+
+  // 맨 마지막(# 마지막)부터 제거
+  appState.items.pop();
+
+  // nextId는 되돌릴 필요 없음(아이디 중복 방지용이라 계속 증가해도 됨)
+  saveApp();
+  renderPracticeGrid();
+});
+
+  // iframe 닫기
+  frameBackBtn.addEventListener("click", ()=>{
+    frame.src = "";       // 닫을 때 비워두기(새로 열 때 깔끔)
+    frameWrap.classList.remove("on");
+  });
+
+// 실전게임 화면에서 홈으로
+gameHomeBtn.addEventListener("click", ()=> show(document.getElementById("homeView")));
+
+</script>
+</body>
+</html>

@@ -1,0 +1,1445 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>배구 기능 향상도 Check!</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
+
+  <style>
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans KR",sans-serif;background:#f5f6f8;}
+    .wrap{max-width:1100px;margin:0 auto;padding:16px;}
+    .title{font-size:30px;font-weight:950;margin:6px 0 14px;}
+
+    .card{background:#fff;border:1px solid #e8e8e8;border-radius:14px;padding:14px;}
+    .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
+    .sp{justify-content:space-between;}
+    .btn{
+      padding:10px 12px;border:1px solid #ddd;background:#fff;border-radius:12px;
+      font-weight:900;cursor:pointer;
+    }
+    .btn.active{border-color:#111;}
+    .btn.primary{border-color:#111;}
+    .hint{color:#666;font-size:12px;margin-top:8px;line-height:1.4;}
+    .muted{color:#666;font-size:12px;}
+
+    /* 학교/학년/반 입력 */
+    .schoolLine{
+      margin-top:12px;
+      display:flex;
+      gap:8px;
+      align-items:center;
+      flex-wrap:wrap;
+      font-size:20px;
+      font-weight:950;
+    }
+    .schoolLine input{
+      border:1px solid #ddd;border-radius:12px;padding:10px 12px;
+      font-weight:900;text-align:center;
+      background:#fff;
+      font-size: 20px;
+    }
+    #schoolName{ width:160px; }
+    #gradeInput{ width:80px; }
+    #classInput{ width:80px; }
+
+    /* 학생 그리드 */
+    .grid{
+      margin-top:12px;
+      display:grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap:10px;
+    }
+    @media (max-width: 980px){ .grid{grid-template-columns: repeat(3, minmax(0, 1fr));} }
+    @media (max-width: 560px){ .grid{grid-template-columns: repeat(2, minmax(0, 1fr));} }
+
+    .stuBtn{
+      border:1px solid #e6e6e6;background:#fff;border-radius:14px;
+      padding:10px;cursor:pointer;min-height:74px;
+      display:flex;flex-direction:column;justify-content:center;gap:6px;
+      text-align:left;
+    }
+    .stuTop{display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;}
+    .stuNum{font-weight:950;font-size:16px;}
+    .stuName{
+      font-weight:900;font-size:15px;color:#111;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+    }
+    .mini{font-size:12px;color:#666;}
+    .badge{
+      font-size:12px;font-weight:900;padding:4px 8px;border-radius:999px;
+      border:1px solid #e5e5e5;color:#333;background:#fafafa;white-space:nowrap;
+    }
+    .badge.ok{border-color:#cce7d3;background:#effaf2;color:#1b6b2a;}
+
+    /* 항목별 입력(테이블) */
+    .formRow{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:8px;}
+    input[type="date"], input[type="number"], input[type="text"]{
+      padding:10px 12px;border:1px solid #ddd;border-radius:12px;font-weight:800;
+    }
+    input[type="number"]{width:90px;}
+    .tableWrap{margin-top:12px;border:1px solid #eee;border-radius:14px;overflow:auto;}
+    table{border-collapse:collapse;width:100%;min-width:900px;}
+    th,td{border-bottom:1px solid #eee;padding:10px;text-align:center;}
+    th{position:sticky;top:0;background:#fafafa;z-index:1;}
+    td.left{text-align:left;}
+    .saved{font-size:12px;color:#1b6b2a;font-weight:900;}
+
+    /* 모달 */
+    .backdrop{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;padding:16px;}
+    .backdrop.open{display:flex;}
+    .modal{width:min(980px, 96vw);background:#fff;border:1px solid #eee;border-radius:16px;padding:14px;}
+    .mHead{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;}
+    .mTitle{font-size:18px;font-weight:950;}
+    .mBtns{display:flex;gap:8px;flex-wrap:wrap;}
+
+    .twoCol{display:grid;grid-template-columns: 1fr 1fr;gap:12px;margin-top:10px;}
+    @media(max-width: 900px){ .twoCol{grid-template-columns: 1fr;} }
+    .sectionTitle{margin:0 0 8px;font-weight:950;}
+    .kpiRow{display:flex;gap:10px;flex-wrap:wrap;}
+    .kpi{border:1px solid #eee;border-radius:14px;padding:10px;min-width:190px;background:#fafafa;}
+    .kpi b{font-size:20px;}
+
+    .metricRow{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+    .metricBtn{padding:10px 12px;border:1px solid #ddd;background:#fff;border-radius:12px;font-weight:900;cursor:pointer;}
+    .metricBtn.active{border-color:#111;}
+    canvas{width:100%;height:260px;border:1px solid #eee;border-radius:14px;background:#fff;}
+
+    .modeBar{
+      margin-top:12px;
+      display:flex;
+      gap:10px;
+      align-items:center;
+    }
+
+    :root{
+      --bg: #f5f8ff;
+      --panel: #ffffff;
+      --panel2: #f7fbff;
+      --border: #dbe7ff;
+
+      --text: #0f172a;
+      --muted: #64748b;
+
+      --blue: #2563eb;
+      --cyan: #06b6d4;
+
+      --shadow: 0 10px 26px rgba(15, 23, 42, .08);
+    }
+
+    /* 배경 */
+    body{
+      background:
+        radial-gradient(1000px 520px at 18% 0%, rgba(37,99,235,.16), transparent 55%),
+        radial-gradient(900px 520px at 80% 10%, rgba(6,182,212,.12), transparent 55%),
+        var(--bg);
+      color: var(--text);
+      font-family: "Jua", system-ui, -apple-system, "Noto Sans KR", sans-serif;
+    }
+
+    /* 컨테이너 */
+    .wrap{ max-width: 1200px; }
+
+    /* 타이틀 */
+    .title{
+      color: var(--text);
+      text-shadow: 0 2px 14px rgba(37,99,235,.12);
+      text-align:center;
+    }
+
+    /* 카드 */
+    .card{
+      background: linear-gradient(180deg, var(--panel), var(--panel2));
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+    }
+
+    /* 안내 텍스트 */
+    .hint, .muted, .mini{ color: var(--muted) !important; }
+
+    /* 입력 */
+    input[type="text"], input[type="date"], input[type="number"]{
+      background: #fff;
+      border: 1px solid #cfe0ff;
+      color: var(--text);
+      font-family: "Jua", system-ui, -apple-system, "Noto Sans KR", sans-serif;
+    }
+    input::placeholder{ color: rgba(100,116,139,.65); }
+    input:focus{
+      border-color: rgba(37,99,235,.55);
+      box-shadow: 0 0 0 3px rgba(37,99,235,.16);
+      outline: none;
+    }
+
+    /* 버튼 기본 */
+    .btn{
+      background: #ffffff;
+      border: 1px solid #cfe0ff;
+      color: var(--text);
+      box-shadow: 0 6px 16px rgba(15,23,42,.06);
+      transition: transform .12s ease, filter .12s ease, box-shadow .12s ease;
+      font-family: "Jua", system-ui, -apple-system, "Noto Sans KR", sans-serif;
+    }
+    .btn:hover{ filter: brightness(1.03); box-shadow: 0 10px 24px rgba(15,23,42,.08); }
+    .btn:active{ transform: scale(.985); }
+
+    /* 선택된 탭(학생별/항목별) */
+    .btn.active{
+      border-color: rgba(37,99,235,.60);
+      background: linear-gradient(135deg, rgba(37,99,235,.14), rgba(6,182,212,.10));
+    }
+
+    /* 주요 버튼(불러오기) */
+    .btn.primary{
+      border-color: rgba(37,99,235,.65);
+      background: linear-gradient(135deg, rgba(37,99,235,.92), rgba(6,182,212,.72));
+      color: #ffffff;
+    }
+
+    /* 학생 버튼 */
+    .stuBtn{
+      background: #ffffff;
+      border: 1px solid #e1ecff;
+      box-shadow: 0 10px 26px rgba(15,23,42,.07);
+    }
+    .stuBtn:hover{ filter: brightness(1.02); }
+    .stuBtn:active{ transform: scale(.985); }
+
+    /* 학생 이름 박스(박스 자체 강조) */
+    .stuName{
+      color: var(--text);
+      background: linear-gradient(135deg, rgba(37,99,235,.18), rgba(6,182,212,.12));
+      padding: 6px 10px;
+      border-radius: 10px;
+      border: 1px solid rgba(37,99,235,.18);
+      display: block;
+      width: 100%;
+      box-sizing: border-box;
+      text-align: center;
+      margin-top: 6px;
+    }
+
+    /* 배지 */
+    .badge{
+      background: rgba(15,23,42,.03);
+      border: 1px solid rgba(15,23,42,.08);
+      color: rgba(15,23,42,.72);
+    }
+    .badge.ok{
+      background: rgba(34,197,94,.12);
+      border-color: rgba(34,197,94,.25);
+      color: #166534;
+    }
+
+    /* 항목별 표 */
+    .tableWrap{ border: 1px solid #dbe7ff; background: rgba(255,255,255,.75); }
+    th{ background: #f1f7ff !important; border-bottom: 1px solid #dbe7ff; color: rgba(15,23,42,.85); }
+    td{ border-bottom: 1px solid rgba(219,231,255,.70); }
+
+    /* 모달은 기본 폰트(주아체 X) */
+    .modal, .modal *{
+      font-family: system-ui, -apple-system, "Noto Sans KR", Segoe UI, Roboto, sans-serif !important;
+    }
+
+    .rosterControls{
+      display:flex;
+      gap:10px;
+      justify-content:flex-end;
+      margin: 10px 0 10px;
+    }
+
+    /* ✅ 여학생: 버튼 전체는 그대로, "이름"만 붉은 톤 */
+    .stuBtn.female .stuName{
+      background: linear-gradient(180deg, #fff1f2, #ffe4e6);
+      border: 1px solid #fecdd3;
+      color: var(--text);
+      border-radius: 10px;
+      padding: 6px 10px;
+      display: block;
+      width: 100%;
+      box-sizing: border-box;
+      text-align: center;
+      margin-top: 6px;
+    }
+
+    /* ✅ 남학생(기본): 이름 파란 톤 */
+.stuBtn.male .stuName{
+  background: linear-gradient(135deg, rgba(37,99,235,.18), rgba(6,182,212,.12));
+  border: 1px solid rgba(37,99,235,.18);
+  color: var(--text);
+}
+
+/* ✅ 여학생: 이름 빨간 톤 (이미 있으면 이 내용으로 덮어쓰기) */
+.stuBtn.female .stuName{
+  background: linear-gradient(180deg, #fff1f2, #ffe4e6);
+  border: 1px solid #fecdd3;
+  color: var(--text);
+}
+
+    /* ✅ 성별 표시 칩(남/여) */
+    .genderTag{
+      margin-top:6px;
+      font-size:12px;
+      font-weight:900;
+      padding:3px 10px;
+      border-radius:999px;
+      border:1px solid #cfe0ff;
+      background:#f1f7ff;
+      color:#1e3a8a;
+      display:inline-block;
+    }
+    .stuBtn.female .genderTag{
+      border-color:#fecdd3;
+      background:#fff1f2;
+      color:#9f1239;
+    }
+
+    /* 학생 버튼 안 전체 가운데 정렬(요청 반영) */
+    .stuBtn{
+      text-align:center !important;
+      align-items:center;
+    }
+    .stuTop{ width:100%; }
+
+    /* ================================
+   TOP10 화면 디자인
+================================ */
+.top10Head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  flex-wrap:wrap;
+  padding:6px 4px 10px;
+}
+
+.top10Sub{
+  font-size:13px;
+  font-weight:900;
+  color:#475569;
+  flex:1;
+  text-align:center;
+  opacity:.9;
+}
+
+.top10Grid{
+  margin-top:12px;
+  display:grid;
+  grid-template-columns: repeat(3, minmax(0,1fr));
+  gap:12px;
+}
+@media (max-width: 980px){
+  .top10Grid{ grid-template-columns: 1fr; }
+  .top10Sub{ text-align:left; }
+}
+
+.rankCard{
+  border:1px solid rgba(219,231,255,.9);
+  border-radius:16px;
+  padding:12px;
+  background: linear-gradient(180deg,#ffffff,#f7fbff);
+  box-shadow: 0 12px 26px rgba(15,23,42,.08);
+}
+
+.rankCard.under{
+  background: linear-gradient(180deg, rgba(37,99,235,.10), #ffffff);
+  border-color: rgba(37,99,235,.25);
+}
+.rankCard.over{
+  background: linear-gradient(180deg, rgba(34,197,94,.10), #ffffff);
+  border-color: rgba(34,197,94,.25);
+}
+.rankCard.serve{
+  background: linear-gradient(180deg, rgba(168,85,247,.10), #ffffff);
+  border-color: rgba(168,85,247,.25);
+}
+
+.rankTitle{
+  font-size:18px;
+  font-weight:950;
+  text-align:center;
+  padding:6px 0 10px;
+}
+
+.rankList{
+  list-style:none;
+  padding:0;
+  margin:0;
+}
+
+.rankItem{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  padding:10px 10px;
+  margin:8px 0;
+  border-radius:14px;
+  background: rgba(255,255,255,.85);
+  border: 1px solid rgba(15,23,42,.06);
+}
+
+.rankLeft{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  min-width:0;
+}
+
+.rankNum{
+  width:42px;
+  height:42px;
+  border-radius:14px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-weight:950;
+  font-size:18px;
+  background: rgba(15,23,42,.06);
+}
+
+.rankName{
+  font-weight:950;
+  font-size:22px;   /* ✅ 이름 크게 */
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+.rankCount{
+  font-weight:950;
+  font-size:26px;   /* ✅ 개수 크게 */
+  white-space:nowrap;
+}
+
+.rankItem.r1 .rankNum{ background: linear-gradient(135deg,#f59e0b,#fbbf24); }
+.rankItem.r2 .rankNum{ background: linear-gradient(135deg,#94a3b8,#e2e8f0); }
+.rankItem.r3 .rankNum{ background: linear-gradient(135deg,#fb7185,#fecdd3); }
+
+/* =========================
+   TOP5 (남/여 분리) UI
+========================= */
+.metricBlock{ margin-top:16px; }
+.metricTitle{
+  font-size:22px;
+  font-weight:950;
+  text-align:center;
+  margin:10px 0 12px;
+}
+
+.twoGender{
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap:14px;
+}
+@media (max-width: 900px){
+  .twoGender{ grid-template-columns: 1fr; }
+}
+
+.topBox{
+  border:1px solid var(--border, #dbe7ff);
+  border-radius:18px;
+  padding:12px;
+  box-shadow: var(--shadow, 0 10px 26px rgba(15, 23, 42, .08));
+  background:#fff;
+}
+
+.topBox.male{
+  background: linear-gradient(180deg, rgba(37,99,235,.14), rgba(255,255,255,.92));
+}
+.topBox.female{
+  background: linear-gradient(180deg, rgba(244,63,94,.14), rgba(255,255,255,.92));
+}
+
+.topHead{
+  font-size:18px;
+  font-weight:950;
+  text-align:center;
+  padding:6px 0 10px;
+}
+
+.topRow{
+  display:grid;
+  grid-template-columns: 64px 1fr 86px;
+  align-items:center;
+  gap:10px;
+  padding:12px 10px;
+  border-top:1px dashed rgba(15,23,42,.14);
+}
+.topRow:first-of-type{ border-top:none; }
+
+.rank{
+  font-weight:950;
+  font-size:22px;
+  text-align:center;
+}
+.nm{
+  font-weight:950;
+  font-size:20px;
+}
+.val{
+  font-weight:950;
+  font-size:26px;
+  text-align:right;
+}
+
+.topEmpty{
+  text-align:center;
+  color: var(--muted, #64748b);
+  padding:14px 0;
+  font-weight:900;
+}
+
+.tieHint{
+  margin-top:10px;
+  text-align:center;
+  font-size:12px;
+  color: var(--muted, #64748b);
+  font-weight:900;
+}
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <div class="title">배구 기능 향상도 Check!</div>
+    <div id="slotBadge" style="font-size:12px;opacity:.6;margin:6px 0;"></div>
+
+    <!-- 상단 박스(오른쪽 상단 버튼 2개만 존재) -->
+    <div class="card">
+      <div class="row sp">
+        <div></div>
+        <div class="row">
+          <button class="btn primary" id="importRosterBtn" type="button">학생 명단 불러오기(CSV)</button>
+          <button class="btn" id="resetAllBtn" type="button">전체 초기화</button>
+          <input id="rosterFile" type="file" accept=".csv,text/csv" hidden />
+        </div>
+      </div>
+
+      <div class="schoolLine">
+        <input id="schoolName" type="text" placeholder="(   )" />
+        <span>중학교</span>
+        <input id="gradeInput" type="text" placeholder="( )" />
+        <span>학년</span>
+        <input id="classInput" type="text" placeholder="( )" />
+        <span>반</span>
+      </div>
+
+      <div class="hint">※ 학교/학년/반은 자동 저장됩니다.</div>
+    </div>
+
+    <!-- 학생별/항목별 버튼 -->
+    <div class="modeBar">
+      <button class="btn" id="modeStudentBtn" type="button">개인별</button>
+      <button class="btn" id="modeItemBtn" type="button">🏆TOP5🏆</button>
+    </div>
+
+    <!-- 학생별 화면 -->
+    <section class="card" id="studentSection" style="margin-top:12px;">
+      <div class="sectionTitle">학생 - 버튼 클릭 → 날짜별 기록 입력 / 그래프 보기</div>
+
+      <div class="rosterControls">
+        <button class="btn" id="addStudentBtn" type="button">+ 학생 추가</button>
+        <button class="btn" id="removeStudentBtn" type="button">- 학생 삭제</button>
+      </div>
+
+      <div class="grid" id="studentsGrid"></div>
+
+      <div class="hint">
+        ✅ 그래프/배지/최고기록은 <b>학생별 팝업에서 저장한 기록</b>만 사용합니다.<br/>
+        ✅ CSV 예시(권장): <b>number,name,gender</b> (gender: M/F 또는 남/여)<br/>
+        1,김철수,M<br/>
+        2,이영희,F
+      </div>
+    </section>
+
+<section class="card" id="itemSection" style="margin-top:12px; display:none;">
+  <div class="sectionTitle" style="text-align:center;font-size:22px;font-weight:950;">
+    🏆 TOP5
+  </div>
+
+  <!-- TOP5 결과가 여기에 그려짐 -->
+  <div id="top10Mount"></div>
+
+  <div class="hint" style="text-align:center;margin-top:10px;">
+    ※ 남학생/여학생을 따로 계산하며, 5등과 동점자는 모두 표시됩니다.
+  </div>
+</section>
+  </div>
+
+  <!-- 학생 모달 -->
+  <div class="backdrop" id="stuBackdrop" aria-hidden="true">
+    <div class="modal">
+      <div class="mHead">
+        <div class="mTitle" id="stuTitle">학생</div>
+        <div class="mBtns">
+          <button class="btn" id="editNameBtn" type="button">이름 수정</button>
+          <button class="btn" id="closeStuBtn" type="button">닫기</button>
+        </div>
+      </div>
+
+      <div class="twoCol">
+        <!-- LEFT -->
+        <div class="card" style="border-radius:16px;">
+          <div class="sectionTitle">그래프 항목 선택</div>
+          <div class="metricRow">
+            <button class="metricBtn active" data-metric="under" type="button">언더</button>
+            <button class="metricBtn" data-metric="over" type="button">오버</button>
+            <button class="metricBtn" data-metric="serve" type="button">서브</button>
+          </div>
+
+          <div class="sectionTitle" style="margin-top:12px;">요약(최고기록 중심)</div>
+          <div class="kpiRow" id="kpiRow"></div>
+
+          <div class="sectionTitle" style="margin-top:12px;">날짜별 기록 입력</div>
+          <div class="formRow" style="margin-top:6px;">
+            <span class="muted">날짜</span>
+            <input id="stuDate" type="date" />
+          </div>
+
+          <div class="stuEntryGrid">
+  <div class="stuField">
+    <div class="label">언더</div>
+    <input id="stuUnder" type="number" min="0" step="1" value="0">
+  </div>
+
+  <div class="stuField">
+    <div class="label">오버</div>
+    <input id="stuOver" type="number" min="0" step="1" value="0">
+  </div>
+
+  <!-- ✅ 서브는 언더 밑(왼쪽 칸)으로 내려감 -->
+  <div class="stuField serve">
+    <div class="label">서브</div>
+    <input id="stuServe" type="number" min="0" step="1" value="0">
+  </div>
+</div>
+
+
+          <div class="formRow" style="margin-top:6px; justify-content:flex-end;">
+            <button class="btn primary" id="stuSaveBtn" type="button">저장</button>
+            <button class="btn" id="stuDeleteBtn" type="button">삭제</button>
+          </div>
+
+          <div class="hint">※ 언더/오버/서브가 모두 0이면 “기록 없음”으로 처리됩니다.</div>
+        </div>
+
+        <!-- RIGHT -->
+        <div class="card" style="border-radius:16px;">
+          <div class="sectionTitle">향상 그래프</div>
+          <canvas id="chartCanvas" width="900" height="320"></canvas>
+          <div class="hint" id="chartHint"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+/* =========================================================
+   SLOT/KEY
+========================================================= */
+const SLOT = new URLSearchParams(location.search).get("slot") || "default";
+const KEY  = `vb_under_over_serve_v1__${SLOT}`;
+const STORAGE_PREFIX = "vb_under_over_serve_v1__";
+
+function save(){ localStorage.setItem(KEY, JSON.stringify(state)); }
+function load(){ try { return JSON.parse(localStorage.getItem(KEY)); } catch { return null; } }
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, m => ({
+    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
+  }[m]));
+}
+
+function makeRoster30(){
+  return Array.from({length:30}, (_,i)=>({
+    number: i+1,
+    name: `학생${i+1}`,
+    gender: "M" // 기본 남(M), 여는 F
+  }));
+}
+
+function todayLocalYYYYMMDD(){
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+/* =========================================================
+   학생별 기록(studentRecordsByDate) 헬퍼
+========================================================= */
+function getStudentRec(date, num){
+  const day = state.studentRecordsByDate?.[date];
+  return day ? day[String(num)] : null;
+}
+
+function setStudentRec(date, num, under, over, serve){
+  const u = Math.max(0, Number(under||0));
+  const o = Math.max(0, Number(over||0));
+  const s = Math.max(0, Number(serve||0));
+
+  // 0,0,0이면 기록 없음 → 삭제
+  if (u===0 && o===0 && s===0){
+    deleteStudentRec(date, num);
+    return;
+  }
+  if (!state.studentRecordsByDate[date]) state.studentRecordsByDate[date] = {};
+  state.studentRecordsByDate[date][String(num)] = { under:u, over:o, serve:s };
+}
+
+function deleteStudentRec(date, num){
+  const day = state.studentRecordsByDate?.[date];
+  if (!day) return;
+  delete day[String(num)];
+  if (Object.keys(day).length === 0) delete state.studentRecordsByDate[date];
+}
+
+function getStudentDates(num){
+  const n = String(num);
+  return Object.keys(state.studentRecordsByDate)
+    .filter(date => state.studentRecordsByDate[date]?.[n])
+    .sort();
+}
+
+function hasAnyStudentRecord(num){
+  return getStudentDates(num).length > 0;
+}
+
+/* =========================================================
+   상태/마이그레이션
+========================================================= */
+const state = load() ?? {
+  mode: "student", // "student" | "item"(=TOP5)
+  roster: makeRoster30(),
+
+  // ✅ 그래프/배지/최고기록은 이것만 사용
+  studentRecordsByDate: {},
+
+  // ✅ (남겨두기) 예전 항목별 기록 저장소(있어도 되고 없어도 됨)
+  itemRecordsByDate: {},
+
+  lastMetric: "under",
+  meta: { school:"", grade:"", className:"" },
+};
+
+if (!state.meta) state.meta = { school:"", grade:"", className:"" };
+if (!state.studentRecordsByDate) state.studentRecordsByDate = {};
+if (!state.itemRecordsByDate) state.itemRecordsByDate = {};
+if (!Array.isArray(state.roster)) state.roster = makeRoster30();
+
+// gender 기본값 보정
+state.roster = state.roster.map(s => ({
+  ...s,
+  gender: (s.gender === "F" || s.gender === "M") ? s.gender : "M"
+}));
+
+// 예전 recordsByDate가 있으면 itemRecordsByDate로 이관
+if (state.recordsByDate && !state.itemRecordsByDate) state.itemRecordsByDate = state.recordsByDate;
+if (state.recordsByDate) delete state.recordsByDate;
+
+save();
+
+/* =========================================================
+   DOM
+========================================================= */
+const slotBadgeEl = document.getElementById("slotBadge");
+if (slotBadgeEl) slotBadgeEl.textContent = `저장공간(slot): ${SLOT}`;
+
+const modeStudentBtn = document.getElementById("modeStudentBtn");
+const modeItemBtn    = document.getElementById("modeItemBtn");
+const studentSection = document.getElementById("studentSection");
+const itemSection    = document.getElementById("itemSection");
+
+const studentsGrid   = document.getElementById("studentsGrid");
+
+const importRosterBtn = document.getElementById("importRosterBtn");
+const rosterFile      = document.getElementById("rosterFile");
+const resetAllBtn     = document.getElementById("resetAllBtn");
+
+const schoolNameEl = document.getElementById("schoolName");
+const gradeEl      = document.getElementById("gradeInput");
+const classEl      = document.getElementById("classInput");
+
+const addStudentBtn    = document.getElementById("addStudentBtn");
+const removeStudentBtn = document.getElementById("removeStudentBtn");
+
+// TOP5 렌더링 마운트/새로고침(있으면 쓰고, 없으면 무시)
+const topMount = document.getElementById("top10Mount");   // 너가 TOP 섹션에서 만들었던 mount id
+const topRefreshBtn = document.getElementById("topRefreshBtn");
+
+// 학생 모달
+const stuBackdrop = document.getElementById("stuBackdrop");
+const stuTitle    = document.getElementById("stuTitle");
+const closeStuBtn = document.getElementById("closeStuBtn");
+const editNameBtn = document.getElementById("editNameBtn");
+const metricBtns  = Array.from(document.querySelectorAll(".metricBtn"));
+const kpiRow      = document.getElementById("kpiRow");
+const chartCanvas = document.getElementById("chartCanvas");
+const chartHint   = document.getElementById("chartHint");
+const ctx = chartCanvas ? chartCanvas.getContext("2d") : null;
+
+// 팝업 입력
+const stuDateEl   = document.getElementById("stuDate");
+const stuUnderEl  = document.getElementById("stuUnder");
+const stuOverEl   = document.getElementById("stuOver");
+const stuServeEl  = document.getElementById("stuServe");
+const stuSaveBtn  = document.getElementById("stuSaveBtn");
+const stuDeleteBtn= document.getElementById("stuDeleteBtn");
+
+let currentStudentNumber = null;
+
+/* 학교/학년/반 값 반영 + 저장 */
+if (schoolNameEl) schoolNameEl.value = state.meta.school || "";
+if (gradeEl)      gradeEl.value      = state.meta.grade || "";
+if (classEl)      classEl.value      = state.meta.className || "";
+
+if (schoolNameEl) schoolNameEl.addEventListener("input", () => { state.meta.school = schoolNameEl.value; save(); });
+if (gradeEl)      gradeEl.addEventListener("input", () => { state.meta.grade = gradeEl.value; save(); });
+if (classEl)      classEl.addEventListener("input", () => { state.meta.className = classEl.value; save(); });
+
+/* =========================================================
+   모드 전환 (학생별 / TOP5)
+========================================================= */
+function setMode(mode){
+  state.mode = mode;
+  save();
+
+  const isStudent = mode === "student";
+
+  if (studentSection) studentSection.style.display = isStudent ? "" : "none";
+  if (itemSection)    itemSection.style.display    = isStudent ? "none" : "";
+
+  if (modeStudentBtn) modeStudentBtn.classList.toggle("active", isStudent);
+  if (modeItemBtn)    modeItemBtn.classList.toggle("active", !isStudent);
+
+  if (!isStudent) renderTop5AllSlots();
+  else renderGrid();
+}
+
+// ✅ (중요) 여기서 버튼 이벤트를 연결해야 함
+if (modeStudentBtn) modeStudentBtn.addEventListener("click", ()=>setMode("student"));
+if (modeItemBtn)    modeItemBtn.addEventListener("click", ()=>setMode("item"));
+
+/* =========================================================
+   학생 그리드 렌더
+========================================================= */
+function renderGrid(){
+  if (!studentsGrid) return;
+
+  studentsGrid.innerHTML = state.roster.map(stu => {
+    const ok = hasAnyStudentRecord(stu.number);
+    const genderClass = (stu.gender === "F") ? "female" : "male";
+
+    return `
+      <button class="stuBtn ${genderClass}" data-number="${stu.number}" type="button">
+        <div class="stuTop">
+          <div class="stuNum">#${stu.number}</div>
+          <div>${ok ? `<span class="badge ok">기록 있음</span>` : `<span class="badge">미기록</span>`}</div>
+        </div>
+
+        <div class="stuName">${escapeHtml(stu.name)}</div>
+
+        <div class="genderTag" data-number="${stu.number}" title="눌러서 성별 변경">
+          ${stu.gender === "F" ? "여" : "남"}
+        </div>
+      </button>
+    `;
+  }).join("");
+}
+
+/* ✅ 성별 토글 + 학생 버튼 클릭 */
+if (studentsGrid){
+  studentsGrid.addEventListener("click", (e) => {
+    const tag = e.target.closest(".genderTag");
+    if (tag) {
+      e.stopPropagation();
+      const num = Number(tag.dataset.number);
+      const stu = state.roster.find(x => x.number === num);
+      if (!stu) return;
+      stu.gender = (stu.gender === "F") ? "M" : "F";
+      save();
+      renderGrid();
+      return;
+    }
+
+    const btn = e.target.closest(".stuBtn");
+    if (!btn) return;
+    const number = Number(btn.dataset.number);
+    openStudent(number);
+  });
+}
+
+/* =========================================================
+   학생 모달
+========================================================= */
+function rosterName(number){
+  return state.roster.find(s=>s.number===number)?.name ?? `학생${number}`;
+}
+function metricLabel(m){
+  if (m==="under") return "언더";
+  if (m==="over")  return "오버";
+  return "서브";
+}
+
+function openStudent(number){
+  currentStudentNumber = number;
+  if (stuTitle) stuTitle.textContent = `#${number} ${rosterName(number)}`;
+
+  metricBtns.forEach(b => b.classList.toggle("active", b.dataset.metric === state.lastMetric));
+
+  if (stuDateEl) stuDateEl.value = todayLocalYYYYMMDD();
+  loadStudentInputsForDate();
+
+  renderStudentModal();
+
+  if (stuBackdrop){
+    stuBackdrop.classList.add("open");
+    stuBackdrop.setAttribute("aria-hidden","false");
+  }
+}
+
+function closeStudent(){
+  if (stuBackdrop){
+    stuBackdrop.classList.remove("open");
+    stuBackdrop.setAttribute("aria-hidden","true");
+  }
+  currentStudentNumber = null;
+}
+
+if (closeStuBtn) closeStuBtn.addEventListener("click", closeStudent);
+if (stuBackdrop){
+  stuBackdrop.addEventListener("click", (e)=>{ if (e.target === stuBackdrop) closeStudent(); });
+}
+
+if (editNameBtn){
+  editNameBtn.addEventListener("click", ()=>{
+    if (currentStudentNumber == null) return;
+    const cur = rosterName(currentStudentNumber);
+    const next = prompt("학생 이름을 입력하세요", cur);
+    if (next == null) return;
+    const name = String(next).trim();
+    if (!name) return;
+
+    const stu = state.roster.find(s=>s.number===currentStudentNumber);
+    if (stu) stu.name = name;
+
+    save();
+    if (stuTitle) stuTitle.textContent = `#${currentStudentNumber} ${rosterName(currentStudentNumber)}`;
+    renderGrid();
+  });
+}
+
+metricBtns.forEach(b=>{
+  b.addEventListener("click", ()=>{
+    metricBtns.forEach(x=>x.classList.remove("active"));
+    b.classList.add("active");
+    state.lastMetric = b.dataset.metric;
+    save();
+    renderStudentModal();
+  });
+});
+
+/* ---- 팝업 입력 ---- */
+function loadStudentInputsForDate(){
+  if (currentStudentNumber == null) return;
+  if (!stuDateEl || !stuUnderEl || !stuOverEl || !stuServeEl) return;
+
+  const date = stuDateEl.value || todayLocalYYYYMMDD();
+  const rec = getStudentRec(date, currentStudentNumber);
+  stuUnderEl.value = rec?.under ?? 0;
+  stuOverEl.value  = rec?.over  ?? 0;
+  stuServeEl.value = rec?.serve ?? 0;
+}
+
+if (stuDateEl){
+  stuDateEl.addEventListener("change", ()=> loadStudentInputsForDate());
+}
+
+if (stuSaveBtn){
+  stuSaveBtn.addEventListener("click", ()=>{
+    if (currentStudentNumber == null) return;
+    if (!stuDateEl) return;
+
+    const date = stuDateEl.value || todayLocalYYYYMMDD();
+
+    setStudentRec(
+      date,
+      currentStudentNumber,
+      stuUnderEl ? stuUnderEl.value : 0,
+      stuOverEl  ? stuOverEl.value  : 0,
+      stuServeEl ? stuServeEl.value : 0
+    );
+
+    save();
+    renderGrid();
+    renderStudentModal();
+  });
+}
+
+if (stuDeleteBtn){
+  stuDeleteBtn.addEventListener("click", ()=>{
+    if (currentStudentNumber == null) return;
+    if (!stuDateEl) return;
+
+    const date = stuDateEl.value || todayLocalYYYYMMDD();
+    deleteStudentRec(date, currentStudentNumber);
+
+    save();
+    renderGrid();
+    loadStudentInputsForDate();
+    renderStudentModal();
+  });
+}
+
+/* ---- 그래프 데이터(학생 팝업 기록만 사용) ---- */
+function getSeriesForStudent(number, metric){
+  const key = String(number);
+  const dates = Object.keys(state.studentRecordsByDate).sort();
+  const pts = [];
+
+  for (const d of dates){
+    const rec = state.studentRecordsByDate[d]?.[key];
+    if (!rec) continue;
+
+    const raw = Number(rec[metric] ?? 0);
+    const value = Number.isFinite(raw) ? raw : 0;
+
+    if (value === 0) continue; // 0은 기록 아님
+    pts.push({ date: d, value });
+  }
+  return pts;
+}
+
+function renderStudentModal(){
+  if (currentStudentNumber == null) return;
+
+  const metric = state.lastMetric || "under";
+  const pts = getSeriesForStudent(currentStudentNumber, metric);
+
+  renderKPI(currentStudentNumber);
+  drawChart(pts, metric);
+
+  if (chartHint){
+    chartHint.textContent = `그래프 항목: ${metricLabel(metric)} (학생별 팝업에서 저장한 값만 표시됩니다.)`;
+  }
+}
+
+/* KPI: 최고기록 + 기록일수/최근날짜 */
+function renderKPI(number){
+  if (!kpiRow) return;
+
+  const under = getSeriesForStudent(number, "under");
+  const over  = getSeriesForStudent(number, "over");
+  const serve = getSeriesForStudent(number, "serve");
+
+  const best = (arr)=> arr.length ? Math.max(...arr.map(x=>x.value)) : 0;
+  const count = (arr)=> arr.length;
+  const lastDate = (arr)=> arr.length ? arr[arr.length-1].date : "-";
+
+  kpiRow.innerHTML = `
+    <div class="kpi">
+      <div class="muted">언더 최고기록</div>
+      <b>${best(under)}</b>
+      <div class="muted">기록 일수 ${count(under)} · 최근 ${lastDate(under)}</div>
+    </div>
+    <div class="kpi">
+      <div class="muted">오버 최고기록</div>
+      <b>${best(over)}</b>
+      <div class="muted">기록 일수 ${count(over)} · 최근 ${lastDate(over)}</div>
+    </div>
+    <div class="kpi">
+      <div class="muted">서브 최고기록</div>
+      <b>${best(serve)}</b>
+      <div class="muted">기록 일수 ${count(serve)} · 최근 ${lastDate(serve)}</div>
+    </div>
+  `;
+}
+
+/* =========================================================
+   그래프(Canvas)
+========================================================= */
+function drawChart(points, metric){
+  if (!ctx || !chartCanvas) return;
+
+  ctx.clearRect(0,0,chartCanvas.width, chartCanvas.height);
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0,0,chartCanvas.width, chartCanvas.height);
+
+  if (!points || points.length < 2){
+    ctx.fillStyle = "#666";
+    ctx.font = "16px system-ui";
+    ctx.fillText("기록이 2개 이상 있어야 그래프가 나와요. (학생 팝업에서 날짜별 저장)", 20, 60);
+    return;
+  }
+
+  const padL = 54, padR = 16, padT = 24, padB = 44;
+  const W = chartCanvas.width, H = chartCanvas.height;
+  const w = W - padL - padR;
+  const h = H - padT - padB;
+
+  const vals = points.map(p=>p.value);
+  const minV = Math.min(...vals);
+  const maxV = Math.max(...vals);
+  const span = (maxV - minV) || 1;
+
+  ctx.strokeStyle = "#ddd";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(padL, padT);
+  ctx.lineTo(padL, H-padB);
+  ctx.lineTo(W-padR, H-padB);
+  ctx.stroke();
+
+  ctx.fillStyle = "#666";
+  ctx.font = "12px system-ui";
+  ctx.fillText(String(maxV), 12, padT+4);
+  ctx.fillText(String(minV), 12, H-padB);
+
+  ctx.fillStyle = "#111";
+  ctx.font = "14px system-ui";
+  ctx.fillText(`${metricLabel(metric)} 변화`, padL, 16);
+
+  ctx.strokeStyle = "#111";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  points.forEach((p, i)=>{
+    const x = padL + (i/(points.length-1)) * w;
+    const y = padT + (1 - (p.value - minV)/span) * h;
+    if (i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+  });
+  ctx.stroke();
+
+  ctx.fillStyle = "#111";
+  points.forEach((p, i)=>{
+    const x = padL + (i/(points.length-1)) * w;
+    const y = padT + (1 - (p.value - minV)/span) * h;
+    ctx.beginPath(); ctx.arc(x,y,4,0,Math.PI*2); ctx.fill();
+  });
+
+  const first = points[0].date;
+  const last  = points[points.length-1].date;
+  ctx.fillStyle = "#666";
+  ctx.font = "12px system-ui";
+  ctx.fillText(first, padL, H-14);
+  ctx.fillText(last, W-padR-90, H-14);
+}
+
+/* =========================================================
+   TOP5 (모든 slot 합산 / 남여 분리 / 동점자 포함)
+========================================================= */
+function pickRecordsBucket(saved){
+  // studentRecordsByDate 우선, 없으면 다른 버킷
+  if (saved?.studentRecordsByDate) return saved.studentRecordsByDate;
+  if (saved?.recordsByDate) return saved.recordsByDate;
+  if (saved?.itemRecordsByDate) return saved.itemRecordsByDate;
+  return {};
+}
+
+function isDefaultName(name){
+  const t = String(name||"").trim();
+  return /^학생\s*\d+$/i.test(t);
+}
+
+function loadAllSlots(){
+  const list = [];
+  for (let i=0; i<localStorage.length; i++){
+    const k = localStorage.key(i);
+    if (!k || !k.startsWith(STORAGE_PREFIX)) continue;
+    try{
+      const saved = JSON.parse(localStorage.getItem(k));
+      if (saved) list.push(saved);
+    }catch{}
+  }
+  return list;
+}
+
+// 모든 슬롯에서 numKey별 name/gender/best(under/over/serve) 집계
+function buildAggregateBest(){
+  const all = loadAllSlots();
+  const agg = new Map(); // numKey -> { numKey, name, gender, best:{under,over,serve} }
+
+  for (const saved of all){
+    const roster = Array.isArray(saved?.roster) ? saved.roster : [];
+    const rosterMap = new Map();
+    roster.forEach(s=>{
+      const nk = String(s.number);
+      const nm = String(s.name||"").trim();
+      const gd = (s.gender === "F" ? "F" : "M");
+      rosterMap.set(nk, { name:nm, gender:gd });
+    });
+
+    const bucket = pickRecordsBucket(saved);
+    const dates = Object.keys(bucket||{});
+    for (const d of dates){
+      const day = bucket[d];
+      if (!day) continue;
+
+      for (const numKey of Object.keys(day)){
+        const rec = day[numKey];
+        if (!rec) continue;
+
+        const u = Number(rec.under||0);
+        const o = Number(rec.over||0);
+        const s = Number(rec.serve||0);
+
+        // 전부 0이면 스킵
+        if ((u<=0) && (o<=0) && (s<=0)) continue;
+
+        const fromRoster = rosterMap.get(numKey) || {};
+        const nameFromSlot = fromRoster.name || `#${numKey}`;
+        const genderFromSlot = fromRoster.gender || "M";
+
+        if (!agg.has(numKey)){
+          agg.set(numKey, {
+            numKey,
+            name: nameFromSlot,
+            gender: genderFromSlot,
+            best: { under:0, over:0, serve:0 }
+          });
+        }
+
+        const cur = agg.get(numKey);
+
+        // 이름은 "학생1" 같은 기본값이면 더 좋은 이름으로 교체
+        if (isDefaultName(cur.name) && !isDefaultName(nameFromSlot)) cur.name = nameFromSlot;
+        // gender는 F가 한 번이라도 나오면 F로(실제 여학생인데 M으로 남아있는 경우 보정)
+        if (cur.gender !== "F" && genderFromSlot === "F") cur.gender = "F";
+
+        cur.best.under = Math.max(cur.best.under, Number.isFinite(u) ? u : 0);
+        cur.best.over  = Math.max(cur.best.over,  Number.isFinite(o) ? o : 0);
+        cur.best.serve = Math.max(cur.best.serve, Number.isFinite(s) ? s : 0);
+      }
+    }
+  }
+
+  return agg;
+}
+
+// limit(5) 기준 + 동점자 포함 + 동순위 계산
+function topWithTies(entries, limit){
+  const arr = entries.filter(x=>x.best>0).sort((a,b)=> b.best - a.best);
+  if (arr.length === 0) return [];
+
+  const cutIndex = Math.min(limit-1, arr.length-1);
+  const cutoff = arr[cutIndex].best;
+
+  // cutoff 이상 모두 포함
+  const included = arr.filter(x => x.best >= cutoff);
+
+  // 동순위 계산(1,2,2,4...)
+  let prev = null;
+  let rank = 0;
+  arr.forEach((x, idx)=>{
+    if (x.best !== prev){
+      rank = idx + 1;
+      prev = x.best;
+    }
+    x.rank = rank;
+  });
+
+  const includeSet = new Set(included.map(x=>x.numKey));
+  return arr.filter(x=>includeSet.has(x.numKey));
+}
+
+function medal(rank){
+  if (rank===1) return "🥇";
+  if (rank===2) return "🥈";
+  if (rank===3) return "🥉";
+  return String(rank);
+}
+
+function renderTop5AllSlots(){
+  // itemSection 안에 mount가 없으면 그냥 종료
+  if (!topMount) return;
+
+  const agg = buildAggregateBest();
+  const metrics = [
+    { key:"under", label:"언더핸드패스" },
+    { key:"over",  label:"오버핸드패스" },
+    { key:"serve", label:"서브" },
+  ];
+
+  const LIMIT = 5;
+
+  const blocks = metrics.map(m=>{
+    const boys = [];
+    const girls = [];
+
+    for (const v of agg.values()){
+      const best = v.best[m.key] || 0;
+      if (best <= 0) continue;
+
+      const row = { numKey:v.numKey, name:v.name, gender:v.gender, best };
+      if (v.gender === "F") girls.push(row);
+      else boys.push(row);
+    }
+
+    const boysTop  = topWithTies(boys, LIMIT);
+    const girlsTop = topWithTies(girls, LIMIT);
+
+    const listHtml = (rows, tone)=> {
+      if (!rows.length) return `<div style="padding:14px;opacity:.75;text-align:center;">기록이 없어요</div>`;
+      return rows.map(r=>`
+        <div style="
+          display:flex;align-items:center;justify-content:space-between;
+          padding:10px 12px;border:1px solid rgba(0,0,0,.08);
+          border-radius:14px;margin:8px 0;
+          background:${tone==='male' ? 'linear-gradient(135deg, rgba(37,99,235,.12), rgba(6,182,212,.10))' : 'linear-gradient(135deg, rgba(244,63,94,.12), rgba(251,113,133,.10))'};
+        ">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div style="font-size:22px;font-weight:950;min-width:44px;text-align:center;">${medal(r.rank)}</div>
+            <div style="font-size:22px;font-weight:950;">${escapeHtml(r.name)}</div>
+          </div>
+          <div style="font-size:26px;font-weight:950;">${r.best}회</div>
+        </div>
+      `).join("");
+    };
+
+    return `
+      <div style="margin:16px 0;padding:14px;border:1px solid rgba(0,0,0,.08);border-radius:16px;background:rgba(255,255,255,.7);">
+        <div style="font-size:26px;font-weight:950;text-align:center;margin:2px 0 12px;">🏆 ${m.label} TOP5</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div style="border:1px solid rgba(37,99,235,.18);border-radius:16px;padding:12px;background:#fff;">
+            <div style="font-size:18px;font-weight:950;text-align:center;margin-bottom:8px;">👦 남학생 TOP5</div>
+            ${listHtml(boysTop,'male')}
+          </div>
+          <div style="border:1px solid rgba(244,63,94,.18);border-radius:16px;padding:12px;background:#fff;">
+            <div style="font-size:18px;font-weight:950;text-align:center;margin-bottom:8px;">👧 여학생 TOP5</div>
+            ${listHtml(girlsTop,'female')}
+          </div>
+        </div>
+        <div style="opacity:.7;text-align:center;margin-top:10px;">※ 5등과 동점자는 모두 표시됩니다.</div>
+      </div>
+    `;
+  }).join("");
+
+  topMount.innerHTML = blocks;
+}
+
+if (topRefreshBtn){
+  topRefreshBtn.addEventListener("click", ()=> renderTop5AllSlots());
+}
+
+/* =========================================================
+   학생 명단 불러오기(CSV): number,name,gender(옵션)
+========================================================= */
+if (importRosterBtn){
+  importRosterBtn.addEventListener("click", ()=>{
+    if (!rosterFile) return;
+    rosterFile.value = "";
+    rosterFile.click();
+  });
+}
+
+if (rosterFile){
+  rosterFile.addEventListener("change", async ()=>{
+    const file = rosterFile.files?.[0];
+    if (!file) return;
+
+    const text = await file.text();
+    const lines = text.replace(/\r/g,"").split("\n").filter(l=>l.trim().length>0);
+    if (lines.length===0) return;
+
+    const head = lines[0].split(",").map(s=>s.trim().toLowerCase());
+    const hasHeader = head.includes("number") && head.includes("name");
+
+    let idxNumber = 0, idxName = 1, idxGender = 2;
+    if (hasHeader){
+      idxNumber = head.indexOf("number");
+      idxName   = head.indexOf("name");
+      idxGender = head.indexOf("gender"); // 없으면 -1
+    }
+
+    const start = hasHeader ? 1 : 0;
+    const list = [];
+
+    for (let i=start;i<lines.length;i++){
+      const parts = lines[i].split(",").map(s=>s.trim());
+      const number = Number(parts[idxNumber]);
+      const name = (parts[idxName] ?? "").trim();
+      if (!Number.isFinite(number) || !name) continue;
+
+      const genderRaw = hasHeader
+        ? (idxGender >= 0 ? (parts[idxGender] ?? "") : "")
+        : (parts[2] ?? "");
+
+      let gender = "M";
+      const g = String(genderRaw).trim().toLowerCase();
+      if (g === "f" || g === "female" || g.startsWith("여")) gender = "F";
+      else if (g === "m" || g === "male" || g.startsWith("남")) gender = "M";
+
+      list.push({ number, name, gender });
+    }
+
+    const map = new Map(list.map(x=>[x.number, x]));
+    state.roster = state.roster.map(stu => {
+      if (!map.has(stu.number)) return stu;
+      const row = map.get(stu.number);
+      return {
+        ...stu,
+        number: stu.number,
+        name: row.name,
+        gender: row.gender || (stu.gender ?? "M"),
+      };
+    });
+
+    save();
+    renderGrid();
+
+    // TOP5 화면이면 갱신
+    if (state.mode !== "student") renderTop5AllSlots();
+  });
+}
+
+/* =========================================================
+   전체 초기화
+========================================================= */
+if (resetAllBtn){
+  resetAllBtn.addEventListener("click", ()=>{
+    const ok = confirm("전체 데이터를 초기화할까요?\n(학생명단/모든 기록이 삭제됩니다)");
+    if (!ok) return;
+    localStorage.removeItem(KEY);
+    location.reload();
+  });
+}
+
+/* =========================================================
+   학생 추가/삭제
+========================================================= */
+function makeStudent(n){
+  return { number: n, name: `학생${n}`, gender:"M" };
+}
+
+if (addStudentBtn){
+  addStudentBtn.addEventListener("click", () => {
+    const nextNum = (state.roster?.length || 0) + 1;
+    if (!state.roster) state.roster = [];
+    state.roster.push(makeStudent(nextNum));
+    save();
+    renderGrid();
+    if (state.mode !== "student") renderTop5AllSlots();
+  });
+}
+
+if (removeStudentBtn){
+  removeStudentBtn.addEventListener("click", () => {
+    if (!state.roster || state.roster.length === 0) return;
+    state.roster.pop();
+    save();
+    renderGrid();
+    if (state.mode !== "student") renderTop5AllSlots();
+  });
+}
+
+/* =========================================================
+   최초 실행
+========================================================= */
+renderGrid();
+setMode(state.mode || "student");
+</script>
+
+</body>
+</html>

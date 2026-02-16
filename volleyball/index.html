@@ -1,0 +1,1328 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>배구 점수판</title>
+  <style>
+    :root{
+      --bg1:#eef5ff;
+      --card:#ffffff;
+      --stroke:rgba(10,25,60,.10);
+      --muted:rgba(10,25,60,.65);
+      --text:#07142e;
+
+      --blue1:#2f6bff;
+      --blue2:#1f43d6;
+
+      --btn1:#1e293b;
+      --btn2:#111827;
+
+      --danger1:#ef4444;
+      --danger2:#b91c1c;
+
+      --accent1:#60a5fa;
+      --accent2:#2563eb;
+
+      --shadow: 0 18px 40px rgba(10,25,60,.12);
+    }
+    html, body { height: 100%; }
+body { min-height: 100vh; }
+
+
+    *{ box-sizing: border-box; }
+    body{
+      margin:0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans KR", Arial, sans-serif;
+      background: radial-gradient(1200px 500px at 50% -150px, rgba(47,107,255,.25), transparent 65%),
+                  linear-gradient(180deg, var(--bg1), #f7fbff);
+      color: var(--text);
+    }
+
+    .wrap{
+  max-width: none;          /* ✅ 가로 제한 제거 */
+  width: 100%;
+  min-height: 100vh;        /* ✅ 세로 꽉 */
+  margin: 0;                /* ✅ 바깥 여백 제거(꽉 차게) */
+  padding: 14px;            /* ✅ 화면 가장자리만 살짝 */
+  display: flex;            /* ✅ 아래 mainGrid를 화면 높이에 맞게 늘리기 */
+  flex-direction: column;
+}
+
+
+    header{
+      display:flex; align-items:center; justify-content:space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    h1{
+      margin:0;
+      font-size: 22px;
+      letter-spacing:-.2px;
+      font-weight: 900;
+    }
+    .topRight{
+      display:flex; gap:10px; align-items:center;
+    }
+    .pill{
+      padding: 7px 10px;
+      border-radius: 999px;
+      background: rgba(255,255,255,.85);
+      border: 1px solid var(--stroke);
+      font-size: 12px;
+      color: var(--muted);
+      white-space:nowrap;
+    }
+
+    .topBtn{
+      border: 1px solid var(--stroke);
+      background: rgba(255,255,255,.9);
+      border-radius: 14px;
+      padding: 10px 14px;
+      cursor:pointer;
+      font-weight: 800;
+    }
+    #importBtn{
+      background: linear-gradient(135deg, rgba(96,165,250,.25), rgba(37,99,235,.12));
+      border-color: rgba(37,99,235,.25);
+    }
+    #hardResetBtn{
+      background: linear-gradient(135deg, rgba(239,68,68,.16), rgba(185,28,28,.10));
+      border-color: rgba(239,68,68,.28);
+    }
+
+    /* 3칸 고정 */
+    .mainGrid{
+      display:grid;
+      grid-template-columns: minmax(360px,1fr) minmax(380px, 720px) minmax(360px,1fr);
+      gap: 16px;
+      align-items:start;
+        flex: 1;        /* ✅ header 제외 남은 공간 채우기 */
+  min-height: 0;  /* ✅ 내부 스크롤 정상 동작 필수 */
+    }
+    .mainGrid > *{ min-width:0; }
+
+    @media (max-width: 1100px){
+      .mainGrid{ grid-template-columns: 1fr; }
+    }
+
+    .card{
+      background: var(--card);
+      border: 1px solid var(--stroke);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+      padding: 14px;
+    }
+
+    /* 좌/우 선수 영역: 살짝 톤다운 회색 */
+    .card.rosterCard{
+      background: linear-gradient(180deg, rgba(17,24,39,.08), rgba(17,24,39,.05));
+    }
+
+    .sideTitle{
+      font-weight: 900;
+      margin-bottom: 10px;
+      display:flex; align-items:center; justify-content:space-between;
+    }
+
+    /* 가운데 점수판 2개 */
+    .scoreboardGrid{
+      display:grid;
+      grid-template-columns: minmax(0,1fr) minmax(0,1fr);
+      gap: 16px;
+      align-items:start;
+    }
+    @media (max-width: 1100px){
+      .scoreboardGrid{ grid-template-columns: 1fr; }
+    }
+
+    .teamTitle{
+      font-weight: 900;
+      margin-bottom: 8px;
+    }
+
+    input{
+      width:100%;
+      border-radius: 14px;
+      border: 1px solid rgba(10,25,60,.12);
+      padding: 10px 12px;
+      font-size: 16px;
+      outline:none;
+      background: rgba(255,255,255,.85);
+    }
+    input:focus{
+      border-color: rgba(37,99,235,.35);
+      box-shadow: 0 0 0 3px rgba(37,99,235,.12);
+    }
+    .small{
+      margin-top: 8px;
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.35;
+    }
+
+    .setRow{
+      display:flex; align-items:center; gap: 8px;
+      margin: 10px 0 8px;
+    }
+    .setLabel{ font-weight: 800; font-size: 13px; color: var(--muted); }
+    .setDot{
+      width: 18px; height: 18px; border-radius: 999px;
+      border: 2px solid rgba(37,99,235,.55);
+      background: transparent;
+      cursor:pointer;
+      transition: transform .08s ease, background .12s ease;
+    }
+    .setDot.on{
+      background: linear-gradient(135deg, #ff3b3b, #ff6b6b);
+      border-color: rgba(255,255,255,.55);
+    }
+    .setDot:active{ transform: scale(0.94); }
+
+    /* 점수 박스: 조금 더 진하게 강조 */
+    .score{
+      margin: 8px 0 8px;
+      font-size: 86px;
+      font-weight: 900;
+      text-align:center; /* ✅ 가운데 정렬 */
+      letter-spacing: -2px;
+      color: #061a44;
+      text-shadow: 0 10px 26px rgba(0,0,0,.10);
+      user-select:none;
+    }
+
+    .bigBtn{
+      width: 100%;
+      margin-top: 10px;
+      border: none;
+      cursor: pointer;
+      border-radius: 16px;
+      padding: 16px 0;
+      font-size: 20px;
+      font-weight: 1000;
+      color: white;
+      background: linear-gradient(135deg, var(--blue1), var(--blue2));
+      box-shadow: 0 14px 28px rgba(47,107,255,.22);
+      transition: transform .08s ease, filter .12s ease;
+    }
+    .bigBtn:hover{ filter: brightness(1.03); }
+    .bigBtn:active{ transform: translateY(1px) scale(.99); }
+
+    /* 좌/우 득점 로그 */
+    .scoreLogBox{
+      margin-top: 10px;
+      padding: 10px;
+      border-radius: 14px;
+      background: rgba(255,255,255,.75);
+      border: 1px solid rgba(10,25,60,.10);
+    }
+    .logHead{
+      display:flex; align-items:center; justify-content:space-between;
+      margin-bottom: 8px;
+    }
+    .logTitle{ font-weight: 900; color: rgba(10,25,60,.78); }
+    .logAllBtn{
+      border: 1px solid rgba(10,25,60,.12);
+      background: rgba(255,255,255,.9);
+      border-radius: 12px;
+      padding: 6px 10px;
+      cursor:pointer;
+      font-weight: 800;
+      font-size: 12px;
+    }
+    .logAllBtn:hover{ filter: brightness(1.04); }
+    .logList{
+      display:flex; flex-direction:column; gap:6px;
+      max-height: 150px;
+      overflow:auto;
+      padding-right: 4px;
+    }
+    .logItem{
+      padding: 8px 10px;
+      border-radius: 12px;
+      background: rgba(255,255,255,.9);
+      border: 1px solid rgba(10,25,60,.08);
+      font-size: 12.5px;
+      color: rgba(10,25,60,.86);
+    }
+
+    /* 가운데 버튼줄 */
+    .row{ display:flex; gap: 10px; margin-top: 12px; }
+    .row.actionRow{
+      width: 100%;
+      justify-content: stretch;
+      align-items: stretch;
+    }
+    .row.actionRow button{
+      flex: 1 1 0;
+      width: 0;
+      border-radius: 16px;
+      border: 1px solid rgba(10,25,60,.10);
+      background: rgba(255,255,255,.92);
+      padding: 14px 0;
+      cursor:pointer;
+      font-weight: 900;
+      transition: transform .08s ease, filter .12s ease;
+      white-space:nowrap;
+    }
+    .row.actionRow button:hover{ filter: brightness(1.04); }
+    .row.actionRow button:active{ transform: translateY(1px); }
+
+    #swapBtn{
+      background: linear-gradient(135deg, #fbbf24, #f59e0b) !important;
+      color: #1a1200 !important;
+      font-weight: 500 !important;
+      box-shadow: none !important;
+    }
+
+    /* 세트/경기 로그 카드 */
+    .logCard{ margin-top: 12px; }
+    .logCard b{ display:block; margin-bottom: 8px; }
+
+    /* 선수 리스트 */
+    .players{
+      display:flex;
+      flex-direction:column;
+      gap: 10px;
+    }
+    .playerRow{
+      display:flex;
+      align-items:center;
+      gap: 10px;
+      padding: 10px;
+      border-radius: 16px;
+      background: rgba(17,24,39,.08);
+      border: 1px solid rgba(10,25,60,.10);
+    }
+    .numBtn{
+      min-width: 58px;
+      border-radius: 14px;
+      border: 1px solid rgba(10,25,60,.12);
+      background: rgba(255,255,255,.75);
+      padding: 10px 10px;
+      cursor:pointer;
+      font-weight: 500; /* ✅ 번호 볼드 제거 */
+    }
+    .nameBtn{
+      flex: 1 1 clamp(120px, 15vw, 170px);
+      width: clamp(120px, 15vw, 170px);
+      display:flex;
+  align-items:center;
+  justify-content:center;
+      border-radius: 14px;
+      border: 1px solid rgba(37,99,235,.28);
+      background: linear-gradient(180deg, rgba(37,99,235,.28), rgba(37,99,235,.12)); /* ✅ 박스 색 강조 */
+      padding: 10px 12px;
+      cursor:pointer;
+      font-weight: 1000; /* ✅ 이름 볼드 */
+      font-size: 18px;   /* ✅ 이름 폰트 키움 */
+      color: rgba(6,16,40,.92);
+       /* ✅ 이름이 길면 칸 밖으로 튀지 않게 */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+    }
+
+    .stats{
+      display:flex;
+      gap: 6px;
+      flex-wrap:nowrap;
+      align-items:center;
+    }
+    .statBox{
+      min-width: 78px;
+      padding: 8px 10px;
+      border-radius: 12px;
+      border: 1px solid rgba(10,25,60,.10);
+      background: rgba(255,255,255,.78);
+      text-align:center;
+      font-size: 16px;
+      color: rgba(10,25,60,.82);
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap: 8px;
+    }
+    .statLabel{ opacity:.75; font-weight:800; font-size:16px; }
+    .statVal{ font-weight: 1000; font-sizw: 16px; min-width: 18px; text-align:right; }
+    .totalBox .statLabel{ display:none; } /* ✅ 총점 글자 제거 */
+
+    /* 모달 공통 */
+    .modalBackdrop{
+      position: fixed;
+      inset: 0;
+      background: rgba(2,6,23,.55);
+      display:none;
+      align-items:center;
+      justify-content:center;
+      padding: 18px;
+      z-index: 999;
+    }
+    .modalBackdrop.open{ display:flex; }
+
+    .modal{
+      width: min(860px, 96vw);
+      border-radius: 18px;
+      background: #0b1220;
+      border: 1px solid rgba(255,255,255,.10);
+      box-shadow: 0 30px 80px rgba(0,0,0,.45);
+      color: rgba(234,241,255,.92);
+      padding: 16px;
+      transform: scale(1.0);
+    }
+    .modalTop{
+      display:flex; align-items:center; justify-content:space-between;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .modalTitle{
+      font-weight: 1000;
+      font-size: 18px;
+    }
+    .closeBtn{
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,.14);
+      background: rgba(255,255,255,.08);
+      color: rgba(234,241,255,.92);
+      padding: 10px 12px;
+      cursor:pointer;
+      font-weight: 900;
+    }
+    .closeBtn:hover{ filter: brightness(1.08); }
+    .closeBtn:active{ transform: translateY(1px); }
+
+    /* 이벤트 버튼(공격/도움/범실 색) */
+    .eventGrid{
+      display:grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+    @media (min-width: 820px){
+      .eventGrid{ grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    }
+    .pickBtn{
+      border: 1px solid rgba(255,255,255,.14);
+      border-radius: 16px;
+      padding: 18px 10px;     /* ✅ 큼직하게 */
+      cursor:pointer;
+      font-weight: 1000;
+      font-size: 15px;
+      color: rgba(234,241,255,.95);
+      transition: transform .08s ease, filter .12s ease;
+    }
+    .pickBtn:hover{ filter: brightness(1.06); }
+    .pickBtn:active{ transform: translateY(1px) scale(.99); }
+
+    .pick-attack{ background: linear-gradient(135deg, #1d4ed8, #2563eb); }
+    .pick-assist{ background: linear-gradient(135deg, #16a34a, #22c55e); }
+    .pick-error { background: linear-gradient(135deg, #dc2626, #ef4444); }
+
+    /* 상세 모달 */
+    .detailGrid{
+      display:grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .detailItem{
+      padding: 12px 12px;
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.06);
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+    }
+    .detailSummary{
+      margin-top: 12px;
+      padding: 12px;
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.06);
+      line-height:1.4;
+    }
+
+    /* 이름 수정 모달 */
+    .nameRow{
+      display:flex;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    #nameInput{
+      flex:1;
+      background: rgba(255,255,255,.10);
+      border: 1px solid rgba(255,255,255,.14);
+      color: rgba(234,241,255,.92);
+    }
+    #nameSaveBtn{
+      min-width: 120px;
+      border: 1px solid rgba(255,255,255,.14);
+      border-radius: 14px;
+      background: linear-gradient(135deg, rgba(96,165,250,.25), rgba(37,99,235,.12));
+      color: rgba(234,241,255,.95);
+      font-weight: 1000;
+      cursor:pointer;
+    }
+    #nameSaveBtn:hover{ filter: brightness(1.06); }
+    #nameSaveBtn:active{ transform: translateY(1px); }
+  /* 총점(마지막 칸) 숫자 가운데 정렬 */
+.totalBox{
+  justify-content: center !important;
+}
+
+.totalBox .statVal{
+  text-align: center !important;
+  min-width: 0 !important;
+}
+  </style>
+  <link rel="manifest" href="./manifest.webmanifest" />
+<meta name="theme-color" content="#0b1220" />
+<link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+</head>
+
+<body>
+  <div class="wrap">
+    <header>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <h1>배구 점수판</h1>
+        <div class="pill" id="matchPill">현재 경기: AB</div>
+        <div class="pill">선수 기록: 팀별 누적</div>
+      </div>
+
+      <div class="topRight">
+        <button class="topBtn" id="importBtn" type="button">명단 불러오기(CSV)</button>
+        <button class="topBtn" id="hardResetBtn" type="button">전체 리셋</button>
+      </div>
+    </header>
+
+    <div class="mainGrid" id="mainLayout">
+      <!-- 왼쪽 -->
+      <div class="card rosterCard">
+        <div class="sideTitle" id="sideTitleL">팀 선수(9명)</div>
+        <div class="players" id="playersL"></div>
+      </div>
+
+      <!-- 가운데 -->
+      <div id="centerPane">
+        <div class="scoreboardGrid">
+          <div class="card">
+            <div class="teamTitle" id="teamTitleL">왼쪽 팀 이름</div>
+            <input id="teamLName" placeholder="예: 1반" />
+            <div class="small">이름/점수/세트/선수기록은 새로고침해도 유지됩니다.</div>
+
+            <div class="setRow">
+              <span class="setLabel">SET</span>
+              <button class="setDot" data-side="L" data-idx="0" aria-label="왼쪽 세트 1"></button>
+              <button class="setDot" data-side="L" data-idx="1" aria-label="왼쪽 세트 2"></button>
+              <button class="setDot" data-side="L" data-idx="2" aria-label="왼쪽 세트 3"></button>
+            </div>
+
+            <div class="score" id="scoreL">0</div>
+
+            <div class="scoreLogBox">
+              <div class="logHead">
+                <div class="logTitle">득점 로그</div>
+                <button class="logAllBtn" data-side="L" type="button">전체</button>
+              </div>
+              <div id="scoreLogL" class="logList"></div>
+            </div>
+
+            <button class="bigBtn" id="btnL" type="button">POINT</button>
+          </div>
+
+          <div class="card">
+            <div class="teamTitle" id="teamTitleR">오른쪽 팀 이름</div>
+            <input id="teamRName" placeholder="예: 2반" />
+            <div class="small">CSV로 A/B/C 명단을 불러와두고, 다음경기 버튼으로 AB→BC→CA 순환</div>
+
+            <div class="setRow">
+              <span class="setLabel">SET</span>
+              <button class="setDot" data-side="R" data-idx="0" aria-label="오른쪽 세트 1"></button>
+              <button class="setDot" data-side="R" data-idx="1" aria-label="오른쪽 세트 2"></button>
+              <button class="setDot" data-side="R" data-idx="2" aria-label="오른쪽 세트 3"></button>
+            </div>
+
+            <div class="score" id="scoreR">0</div>
+
+            <div class="scoreLogBox">
+              <div class="logHead">
+                <div class="logTitle">득점 로그</div>
+                <button class="logAllBtn" data-side="R" type="button">전체</button>
+              </div>
+              <div id="scoreLogR" class="logList"></div>
+            </div>
+
+            <button class="bigBtn" id="btnR" type="button">POINT</button>
+          </div>
+        </div>
+
+        <div class="row actionRow">
+          <button id="undoBtn" type="button">실행취소</button>
+          <button id="resetBtn" type="button">리셋(0:0)</button>
+          <button id="swapBtn" type="button">체인지</button>
+          <button id="endSetBtn" type="button">세트종료</button>
+          <button id="nextMatchBtn" type="button">다음경기</button>
+        </div>
+
+        <div class="card logCard">
+          <b>세트/경기(최근 10개)</b>
+          <div id="setLog"></div>
+        </div>
+      </div>
+
+      <!-- 오른쪽 -->
+      <div class="card rosterCard">
+        <div class="sideTitle" id="sideTitleR">팀 선수(9명)</div>
+        <div class="players" id="playersR"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 숨김 파일 입력 -->
+  <input id="fileInput" type="file" accept=".csv,text/csv" style="display:none" />
+
+  <!-- 이벤트 모달 -->
+  <div id="eventModalBackdrop" class="modalBackdrop">
+    <div class="modal">
+      <div class="modalTop">
+        <div id="eventModalTitle" class="modalTitle">기록</div>
+        <button id="eventModalClose" class="closeBtn" type="button">닫기</button>
+      </div>
+      <div id="eventButtons" class="eventGrid"></div>
+    </div>
+  </div>
+
+  <!-- 상세 모달(번호 클릭) -->
+  <div id="detailModalBackdrop" class="modalBackdrop">
+    <div class="modal">
+      <div class="modalTop">
+        <div id="detailModalTitle" class="modalTitle">상세</div>
+        <div style="display:flex; gap:10px;">
+          <button id="openNameEditBtn" class="closeBtn" type="button">이름 수정</button>
+          <button id="detailModalClose" class="closeBtn" type="button">닫기</button>
+        </div>
+      </div>
+      <div id="detailList" class="detailGrid"></div>
+      <div id="detailSummary" class="detailSummary"></div>
+    </div>
+  </div>
+
+  <!-- 이름 수정 모달 -->
+  <div id="nameModalBackdrop" class="modalBackdrop">
+    <div class="modal" style="max-width:560px;">
+      <div class="modalTop">
+        <div id="nameModalTitle" class="modalTitle">이름 수정</div>
+        <button id="nameModalClose" class="closeBtn" type="button">닫기</button>
+      </div>
+      <div class="nameRow">
+        <input id="nameInput" placeholder="이름 입력(예: 홍길동)" />
+        <button id="nameSaveBtn" type="button">저장</button>
+      </div>
+      <div class="small" style="margin-top:10px;color:rgba(234,241,255,.75);">
+        * 저장하면 해당 선수의 이름만 바뀌고 기록은 유지됩니다.
+      </div>
+    </div>
+  </div>
+
+  <!-- 득점 히스토리 모달 -->
+  <div id="historyModalBackdrop" class="modalBackdrop">
+    <div class="modal" style="max-width:760px;">
+      <div class="modalTop">
+        <div id="historyModalTitle" class="modalTitle">득점 히스토리</div>
+        <button id="historyModalClose" class="closeBtn" type="button">닫기</button>
+      </div>
+      <div id="historyModalList" style="max-height:70vh; overflow:auto; margin-top:10px;"></div>
+    </div>
+  </div>
+
+  <script>
+    const KEY = "vb_scoreboard_full_v1";
+    const MATCH_CYCLE = [["A","B"],["B","C"],["C","A"]];
+
+    const matchPill = document.getElementById("matchPill");
+
+    const elScoreL = document.getElementById("scoreL");
+    const elScoreR = document.getElementById("scoreR");
+    const elScoreLogL = document.getElementById("scoreLogL");
+    const elScoreLogR = document.getElementById("scoreLogR");
+    const elSetLog = document.getElementById("setLog");
+
+    const teamTitleL = document.getElementById("teamTitleL");
+    const teamTitleR = document.getElementById("teamTitleR");
+    const teamLName = document.getElementById("teamLName");
+    const teamRName = document.getElementById("teamRName");
+
+    const btnL = document.getElementById("btnL");
+    const btnR = document.getElementById("btnR");
+    const undoBtn = document.getElementById("undoBtn");
+    const resetBtn = document.getElementById("resetBtn");
+    const swapBtn = document.getElementById("swapBtn");
+    const endSetBtn = document.getElementById("endSetBtn");
+    const nextMatchBtn = document.getElementById("nextMatchBtn");
+
+    const importBtn = document.getElementById("importBtn");
+    const hardResetBtn = document.getElementById("hardResetBtn");
+    const fileInput = document.getElementById("fileInput");
+
+    const playersLEl = document.getElementById("playersL");
+    const playersREl = document.getElementById("playersR");
+    const sideTitleL = document.getElementById("sideTitleL");
+    const sideTitleR = document.getElementById("sideTitleR");
+
+    // 모달 요소
+    const eventBackdrop = document.getElementById("eventModalBackdrop");
+    const eventTitle = document.getElementById("eventModalTitle");
+    const eventClose = document.getElementById("eventModalClose");
+    const eventButtons = document.getElementById("eventButtons");
+
+    const detailBackdrop = document.getElementById("detailModalBackdrop");
+    const detailTitle = document.getElementById("detailModalTitle");
+    const detailClose = document.getElementById("detailModalClose");
+    const detailList = document.getElementById("detailList");
+    const detailSummary = document.getElementById("detailSummary");
+    const openNameEditBtn = document.getElementById("openNameEditBtn");
+
+    const nameBackdrop = document.getElementById("nameModalBackdrop");
+    const nameModalTitle = document.getElementById("nameModalTitle");
+    const nameModalClose = document.getElementById("nameModalClose");
+    const nameInput = document.getElementById("nameInput");
+    const nameSaveBtn = document.getElementById("nameSaveBtn");
+
+    const historyBackdrop = document.getElementById("historyModalBackdrop");
+    const historyTitle = document.getElementById("historyModalTitle");
+    const historyClose = document.getElementById("historyModalClose");
+    const historyList = document.getElementById("historyModalList");
+
+    function save(){ localStorage.setItem(KEY, JSON.stringify(state)); }
+    function load(){ try { return JSON.parse(localStorage.getItem(KEY)); } catch { return null; } }
+
+    function defaultPlayers(prefix){
+      return Array.from({length:9}, (_,i)=>({
+        id: `${prefix}${i+1}`,
+        number: i+1,
+        name: `${prefix}-${i+1}`,
+        spike:0, block:0, ace:0,
+        double:0, dig:0,
+        serveErr:0, netErr:0, doubleErr:0
+      }));
+    }
+
+    // 상태
+    const state = load() ?? {
+      matchIndex: 0,
+      courtSwap: false,
+
+      teamNames: { A:"", B:"", C:"" },
+      rosters: {
+        A: defaultPlayers("A"),
+        B: defaultPlayers("B"),
+        C: defaultPlayers("C")
+      },
+
+      scoreL: 0,
+      scoreR: 0,
+      setsL: [false,false,false],
+      setsR: [false,false,false],
+
+      scoreHistory: [], // {side:"L"|"R", text:"..."}
+      setLogs: [],
+
+      actions: [] // undo stack
+    };
+
+    // 보정
+    if (state.courtSwap === undefined) state.courtSwap = false;
+    if (!state.teamNames) state.teamNames = {A:"",B:"",C:""};
+    if (!state.rosters) state.rosters = {A:defaultPlayers("A"),B:defaultPlayers("B"),C:defaultPlayers("C")};
+    if (!state.scoreHistory) state.scoreHistory = [];
+    if (!state.setLogs) state.setLogs = [];
+    if (!state.actions) state.actions = [];
+    if (!state.setsL) state.setsL = [false,false,false];
+    if (!state.setsR) state.setsR = [false,false,false];
+    if (state.scoreL === undefined) state.scoreL = 0;
+    if (state.scoreR === undefined) state.scoreR = 0;
+
+    // 예전 scoreHistory가 문자열 배열이면 변환
+    if (Array.isArray(state.scoreHistory) && state.scoreHistory.length>0 && typeof state.scoreHistory[0] === "string"){
+      state.scoreHistory = state.scoreHistory.map(t => ({side:"L", text:t}));
+    }
+
+    function currentTeamsRaw(){
+      return MATCH_CYCLE[state.matchIndex] ?? ["A","B"];
+    }
+    function currentTeams(){
+      const [L,R] = currentTeamsRaw();
+      return state.courtSwap ? [R,L] : [L,R];
+    }
+    function leftTeamKey(){ return currentTeams()[0]; }
+    function rightTeamKey(){ return currentTeams()[1]; }
+
+    function teamDisplayName(teamKey){
+      return state.teamNames?.[teamKey] || `팀 ${teamKey}`;
+    }
+    function roster(teamKey){ return state.rosters[teamKey]; }
+
+    function sideOfTeam(teamKey){
+      if (teamKey === leftTeamKey()) return "L";
+      if (teamKey === rightTeamKey()) return "R";
+      return "L";
+    }
+    function otherSide(side){ return side === "L" ? "R" : "L"; }
+
+    function computeStats(p){
+      const attack = (p.spike||0)+(p.block||0)+(p.ace||0);
+      const assist = (p.double||0)+(p.dig||0);
+      const error = (p.serveErr||0)+(p.netErr||0)+(p.doubleErr||0);
+      const total = attack + assist - error;
+      return {attack, assist, error, total};
+    }
+
+    function pushScoreLog(side, text){
+      state.scoreHistory.push({side, text});
+    }
+
+    function fillNextSet(side){
+      const arr = side === "L" ? state.setsL : state.setsR;
+      const idx = arr.findIndex(v=>v===false);
+      if (idx !== -1) arr[idx] = true;
+    }
+
+    // 이벤트 정의(8개)
+    const EVENT_DEFS = [
+      { key:"spike", label:"스파이크",   cls:"pick-attack", score:"SELF" },
+      { key:"block", label:"블로킹",     cls:"pick-attack", score:"SELF" },
+      { key:"ace",   label:"서브에이스", cls:"pick-attack", score:"SELF" },
+
+      { key:"double",label:"이단토스",   cls:"pick-assist", score:"NONE" },
+      { key:"dig",   label:"수비",       cls:"pick-assist", score:"NONE" },
+
+      { key:"serveErr", label:"서브범실",      cls:"pick-error", score:"OTHER" },
+      { key:"netErr",   label:"네트터치범실",  cls:"pick-error", score:"OTHER" },
+      { key:"doubleErr",label:"더블컨택범실",  cls:"pick-error", score:"OTHER" },
+    ];
+
+    // 현재 선택 선수
+    let currentTeamKey = null;
+    let currentIdx = null;
+
+    function openEventModal(teamKey, idx){
+      currentTeamKey = teamKey;
+      currentIdx = idx;
+      const p = roster(teamKey)[idx];
+      eventTitle.textContent = `${teamDisplayName(teamKey)} ${p.number}번 ${p.name} 기록`;
+      eventButtons.innerHTML = EVENT_DEFS.map(d =>
+        `<button class="pickBtn ${d.cls}" data-key="${d.key}">${d.label}</button>`
+      ).join("");
+      eventBackdrop.classList.add("open");
+    }
+    function closeEventModal(){
+      eventBackdrop.classList.remove("open");
+      currentTeamKey = null;
+      currentIdx = null;
+    }
+
+    // 상세 모달(번호 클릭)
+    let detailTeamKey = null;
+    let detailIdx = null;
+
+    function openDetailModal(teamKey, idx){
+      detailTeamKey = teamKey;
+      detailIdx = idx;
+      const p = roster(teamKey)[idx];
+      detailTitle.textContent = `${teamDisplayName(teamKey)} ${p.number}번 ${p.name} 상세`;
+
+      const rows = [
+        ["스파이크", p.spike||0],
+        ["블로킹", p.block||0],
+        ["서브에이스", p.ace||0],
+        ["이단토스", p.double||0],
+        ["수비", p.dig||0],
+        ["서브범실", p.serveErr||0],
+        ["네트터치", p.netErr||0],
+        ["더블컨택", p.doubleErr||0],
+      ];
+      detailList.innerHTML = rows.map(([k,v]) =>
+        `<div class="detailItem"><span>${k}</span><b>${v}</b></div>`
+      ).join("");
+
+      const s = computeStats(p);
+      detailSummary.innerHTML =
+        `<b>공격</b> ${s.attack} &nbsp; | &nbsp; <b>도움</b> ${s.assist} &nbsp; | &nbsp; <b>범실</b> ${s.error} (총점에서 -${s.error})<br/>
+         <div style="margin-top:8px;"><b style="font-size:18px;">총점: ${s.total}</b></div>
+         <div class="small" style="margin-top:6px;color:rgba(234,241,255,.75);">* 번호를 눌러 상세 확인 / 이름 수정 버튼으로 이름 변경 가능</div>`;
+
+      detailBackdrop.classList.add("open");
+    }
+    function closeDetailModal(){
+      detailBackdrop.classList.remove("open");
+      detailTeamKey = null;
+      detailIdx = null;
+    }
+
+    // 이름 수정 모달
+    function openNameModal(teamKey, idx){
+      const p = roster(teamKey)[idx];
+      nameModalTitle.textContent = `${teamDisplayName(teamKey)} ${p.number}번 이름 수정`;
+      nameInput.value = p.name || "";
+      nameBackdrop.classList.add("open");
+      setTimeout(()=>nameInput.focus(), 10);
+    }
+    function closeNameModal(){
+      nameBackdrop.classList.remove("open");
+    }
+    function savePlayerName(){
+      if (detailTeamKey == null || detailIdx == null) return;
+      const p = roster(detailTeamKey)[detailIdx];
+      const v = (nameInput.value || "").trim();
+      if (!v){ alert("이름을 입력해 주세요."); return; }
+      p.name = v;
+      save(); render();
+      closeNameModal();
+      // 상세 모달 제목도 갱신
+      openDetailModal(detailTeamKey, detailIdx);
+    }
+
+    // 이벤트 적용
+    function applyEvent(teamKey, idx, eventKey){
+      const p = roster(teamKey)[idx];
+      const def = EVENT_DEFS.find(d=>d.key===eventKey);
+      if (!def) return;
+
+      const action = {
+        scoreL:0, scoreR:0,
+        teamKey, idx, eventKey,
+        scoreLogAdded: null
+      };
+
+      // 개인 카운트 증가
+      p[eventKey] = (p[eventKey]||0) + 1;
+
+      const side = sideOfTeam(teamKey);
+      const tName = teamDisplayName(teamKey);
+
+      if (def.score === "SELF"){
+        // 자기 팀 득점 -> 해당 side 점수 +1
+        if (side === "L"){ state.scoreL += 1; action.scoreL = 1; }
+        else { state.scoreR += 1; action.scoreR = 1; }
+
+        const txt = `${tName} 득점: ${p.number}번 ${p.name} (${def.label})`;
+        pushScoreLog(side, txt);
+        action.scoreLogAdded = {side, text: txt};
+
+      } else if (def.score === "OTHER"){
+        // 범실 -> 상대 득점 +1
+        const oside = otherSide(side);
+        const oTeamKey = (oside === "L") ? leftTeamKey() : rightTeamKey();
+        const oName = teamDisplayName(oTeamKey);
+
+        if (oside === "L"){ state.scoreL += 1; action.scoreL = 1; }
+        else { state.scoreR += 1; action.scoreR = 1; }
+
+        const txt = `${oName} 득점: ${tName} ${p.number}번 ${p.name} (${def.label})`;
+        pushScoreLog(oside, txt);
+        action.scoreLogAdded = {side: oside, text: txt};
+      } else {
+        // NONE: 점수 변화 없음(도움/수비)
+      }
+
+      state.actions.push(action);
+      save(); render();
+    }
+
+    function undoLast(){
+      const last = state.actions.pop();
+      if (!last) return;
+
+      // 점수 되돌림
+      state.scoreL = Math.max(0, state.scoreL - (last.scoreL||0));
+      state.scoreR = Math.max(0, state.scoreR - (last.scoreR||0));
+
+      // 선수 카운트 되돌림
+      if (last.teamKey && last.eventKey != null){
+        const p = roster(last.teamKey)[last.idx];
+        if (p && p[last.eventKey] !== undefined){
+          p[last.eventKey] = Math.max(0, p[last.eventKey]-1);
+        }
+      }
+
+      // 로그 되돌림(마지막 항목이 같으면 pop)
+      if (last.scoreLogAdded){
+        const tail = state.scoreHistory[state.scoreHistory.length-1];
+        if (tail && tail.side === last.scoreLogAdded.side && tail.text === last.scoreLogAdded.text){
+          state.scoreHistory.pop();
+        }
+      }
+
+      save(); render();
+    }
+
+    function resetCurrentGameScores(){
+      state.scoreL = 0;
+      state.scoreR = 0;
+      state.scoreHistory = [];
+      state.actions = [];
+    }
+
+    function resetCurrentMatchSets(){
+      state.setsL = [false,false,false];
+      state.setsR = [false,false,false];
+    }
+
+    function nextMatch(){
+      const before = currentTeamsRaw().join("");
+      state.matchIndex = (state.matchIndex + 1) % MATCH_CYCLE.length;
+      state.courtSwap = false;
+      const after = currentTeamsRaw().join("");
+
+      resetCurrentGameScores();
+      resetCurrentMatchSets();
+
+      state.setLogs.push(`경기 전환: ${before} → ${after}`);
+      save(); render();
+    }
+
+    function swapSides(){
+      // Undo 꼬임 방지: 체인지 시 Undo 스택은 초기화(가장 안전)
+      state.actions = [];
+
+      // 점수/세트 좌우 교체
+      [state.scoreL, state.scoreR] = [state.scoreR, state.scoreL];
+      [state.setsL, state.setsR] = [state.setsR, state.setsL];
+
+      // 득점로그도 좌우 교체
+      state.scoreHistory = state.scoreHistory.map(it => ({
+        side: it.side === "L" ? "R" : "L",
+        text: it.text
+      }));
+
+      // 표시 팀 좌우 반전
+      state.courtSwap = !state.courtSwap;
+
+      state.setLogs.push(`체인지: 좌/우 교체`);
+      save(); render();
+    }
+
+    function endSet(){
+      const Lkey = leftTeamKey();
+      const Rkey = rightTeamKey();
+      const Lname = teamDisplayName(Lkey);
+      const Rname = teamDisplayName(Rkey);
+
+      let winnerSide = null;
+      if (state.scoreL > state.scoreR) winnerSide = "L";
+      else if (state.scoreR > state.scoreL) winnerSide = "R";
+
+      if (winnerSide === "L"){
+        fillNextSet("L");
+        state.setLogs.push(`세트 종료: ${Lname} 승 (${state.scoreL}:${state.scoreR})`);
+      } else if (winnerSide === "R"){
+        fillNextSet("R");
+        state.setLogs.push(`세트 종료: ${Rname} 승 (${state.scoreR}:${state.scoreL})`);
+      } else {
+        state.setLogs.push(`세트 종료: 동점 (${state.scoreL}:${state.scoreR})`);
+      }
+
+      resetCurrentGameScores();
+      save(); render();
+    }
+
+    function hardResetAll(){
+      const ok = confirm("전체 리셋할까요?\n(팀명/세트/점수/로그/선수기록/불러온 명단이 모두 초기화됩니다)");
+      if (!ok) return;
+      localStorage.removeItem(KEY);
+      location.reload();
+    }
+
+    // ===== CSV 불러오기 =====
+    // 권장 CSV 헤더:
+    // team,teamName,number,name
+    // A,홍구샘명,1,안유진
+    // ...
+    function parseCSV(text){
+      const lines = text.replace(/\r/g,"").split("\n").filter(l=>l.trim().length>0);
+      if (lines.length===0) return {rows:[], teamNames:{}};
+
+      const header = lines[0].split(",").map(s=>s.trim().toLowerCase());
+      const hasHeader = header.includes("team") && header.includes("number") && header.includes("name");
+      const col = (key)=>{
+        const idx = header.indexOf(key);
+        return idx >= 0 ? idx : null;
+      };
+      const iTeam = hasHeader ? col("team") : 0;
+      const iNumber = hasHeader ? col("number") : 1;
+      const iName = hasHeader ? col("name") : 2;
+      const iTeamName = hasHeader ? (col("teamname") ?? col("team_name")) : 3;
+
+      const start = hasHeader ? 1 : 0;
+      const rows = [];
+      const teamNames = {};
+
+      for (let i=start; i<lines.length; i++){
+        const parts = lines[i].split(",").map(s=>s.trim());
+        const team = (parts[iTeam]||"").toUpperCase();
+        const number = Number(parts[iNumber]);
+        const name = (parts[iName]||"").trim();
+        const tname = (iTeamName != null ? (parts[iTeamName]||"").trim() : "");
+
+        if (!["A","B","C"].includes(team)) continue;
+        if (!Number.isFinite(number) || !name) continue;
+        rows.push({team, number, name});
+        if (tname && !teamNames[team]) teamNames[team] = tname;
+      }
+      return {rows, teamNames};
+    }
+
+    function applyRoster(parsed){
+      const {rows, teamNames} = parsed;
+
+      // 팀명 반영(있을 때만)
+      ["A","B","C"].forEach(k=>{
+        if (teamNames[k]) state.teamNames[k] = teamNames[k];
+      });
+
+      // 슬롯은 유지(기록 누적), 이름/번호만 덮어씀
+      function applyToTeam(teamKey){
+        const list = rows.filter(r=>r.team===teamKey).slice(0,9);
+        const base = state.rosters[teamKey] ?? defaultPlayers(teamKey);
+        // 부족하면 base 그대로, 있는 것만 덮기
+        list.forEach((r,i)=>{
+          base[i].number = r.number;
+          base[i].name = r.name;
+        });
+        state.rosters[teamKey] = base;
+      }
+
+      applyToTeam("A");
+      applyToTeam("B");
+      applyToTeam("C");
+
+      save(); render();
+    }
+
+    // ===== 렌더 =====
+    function renderPlayers(side){
+      const teamKey = (side==="L") ? leftTeamKey() : rightTeamKey();
+      const list = roster(teamKey);
+      const root = (side==="L") ? playersLEl : playersREl;
+
+      root.innerHTML = list.map((p, idx)=>{
+        const s = computeStats(p);
+        return `
+          <div class="playerRow" data-side="${side}" data-idx="${idx}">
+            <button class="numBtn" data-role="num" type="button">#${p.number}</button>
+            <button class="nameBtn" data-role="name" type="button">${p.name}</button>
+            <div class="stats">
+              <div class="statBox"><span class="statLabel">공격</span><span class="statVal">${s.attack}</span></div>
+              <div class="statBox"><span class="statLabel">도움</span><span class="statVal">${s.assist}</span></div>
+              <div class="statBox"><span class="statLabel">범실</span><span class="statVal">${s.error}</span></div>
+              <div class="statBox totalBox"><span class="statLabel">총점</span><span class="statVal">${s.total}</span></div>
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function renderScoreLogs(){
+      const leftAll = state.scoreHistory.filter(x=>x.side==="L");
+      const rightAll = state.scoreHistory.filter(x=>x.side==="R");
+
+      const leftItems = leftAll.slice(-10).reverse();
+      const rightItems = rightAll.slice(-10).reverse();
+
+      elScoreLogL.innerHTML = leftItems.length===0
+        ? "<div class='logItem'>아직 득점 기록이 없습니다.</div>"
+        : leftItems.map((it, idx)=>`<div class='logItem'>#${leftAll.length-idx} : ${it.text}</div>`).join("");
+
+      elScoreLogR.innerHTML = rightItems.length===0
+        ? "<div class='logItem'>아직 득점 기록이 없습니다.</div>"
+        : rightItems.map((it, idx)=>`<div class='logItem'>#${rightAll.length-idx} : ${it.text}</div>`).join("");
+    }
+
+    function render(){
+      const [rawL, rawR] = currentTeamsRaw();
+      matchPill.textContent = `현재 경기: ${rawL}${rawR}`;
+
+      const Lkey = leftTeamKey();
+      const Rkey = rightTeamKey();
+
+      teamTitleL.textContent = `${teamDisplayName(Lkey)} (왼쪽)`;
+      teamTitleR.textContent = `${teamDisplayName(Rkey)} (오른쪽)`;
+
+      // 입력값은 팀키 기준으로 연결
+      teamLName.value = state.teamNames[Lkey] || "";
+      teamRName.value = state.teamNames[Rkey] || "";
+
+      sideTitleL.textContent = `${teamDisplayName(Lkey)} 선수(9명)`;
+      sideTitleR.textContent = `${teamDisplayName(Rkey)} 선수(9명)`;
+
+      elScoreL.textContent = state.scoreL;
+      elScoreR.textContent = state.scoreR;
+
+      // 세트 동그라미
+      document.querySelectorAll(".setDot").forEach(btn=>{
+        const side = btn.dataset.side;
+        const idx = Number(btn.dataset.idx);
+        const on = (side==="L") ? state.setsL[idx] : state.setsR[idx];
+        btn.classList.toggle("on", !!on);
+      });
+
+      renderPlayers("L");
+      renderPlayers("R");
+      renderScoreLogs();
+
+      // 세트/경기 로그(최근 10)
+      const setItems = state.setLogs.slice(-10).reverse();
+      elSetLog.innerHTML = setItems.length===0
+        ? "<div class='logItem'>아직 기록이 없습니다.</div>"
+        : setItems.map((t,i)=>`<div class='logItem'>#${state.setLogs.length-i} : ${t}</div>`).join("");
+    }
+
+    // ===== 이벤트 연결 =====
+    // 팀명 입력(현재 팀키에 저장)
+    teamLName.addEventListener("input", ()=>{
+      const key = leftTeamKey();
+      state.teamNames[key] = teamLName.value;
+      save(); render();
+    });
+    teamRName.addEventListener("input", ()=>{
+      const key = rightTeamKey();
+      state.teamNames[key] = teamRName.value;
+      save(); render();
+    });
+
+    // 팀 득점 버튼
+    btnL.addEventListener("click", ()=>{
+      const Lkey = leftTeamKey();
+      state.scoreL += 1;
+      const txt = `${teamDisplayName(Lkey)} 득점(팀 버튼)`;
+      pushScoreLog("L", txt);
+      state.actions.push({ scoreL:1, scoreR:0, teamKey:null, idx:null, eventKey:null, scoreLogAdded:{side:"L", text:txt} });
+      save(); render();
+    });
+
+    btnR.addEventListener("click", ()=>{
+      const Rkey = rightTeamKey();
+      state.scoreR += 1;
+      const txt = `${teamDisplayName(Rkey)} 득점(팀 버튼)`;
+      pushScoreLog("R", txt);
+      state.actions.push({ scoreL:0, scoreR:1, teamKey:null, idx:null, eventKey:null, scoreLogAdded:{side:"R", text:txt} });
+      save(); render();
+    });
+
+    undoBtn.addEventListener("click", undoLast);
+
+    resetBtn.addEventListener("click", ()=>{
+      resetCurrentGameScores();
+      save(); render();
+    });
+
+    swapBtn.addEventListener("click", swapSides);
+    endSetBtn.addEventListener("click", endSet);
+    nextMatchBtn.addEventListener("click", nextMatch);
+
+    // 세트 점(수동 토글)
+    document.querySelectorAll(".setDot").forEach(btn=>{
+      btn.addEventListener("click", ()=>{
+        const side = btn.dataset.side;
+        const idx = Number(btn.dataset.idx);
+        if (side==="L") state.setsL[idx] = !state.setsL[idx];
+        else state.setsR[idx] = !state.setsR[idx];
+        save(); render();
+      });
+    });
+
+    // 선수 클릭(이름/번호)
+    function wirePlayers(rootEl, side){
+      rootEl.addEventListener("click", (e)=>{
+        const row = e.target.closest(".playerRow");
+        if (!row) return;
+        const idx = Number(row.dataset.idx);
+        const role = e.target.dataset.role;
+        const teamKey = (side==="L") ? leftTeamKey() : rightTeamKey();
+
+        if (role==="name") openEventModal(teamKey, idx);
+        if (role==="num") openDetailModal(teamKey, idx);
+      });
+    }
+    wirePlayers(playersLEl, "L");
+    wirePlayers(playersREl, "R");
+
+    // 이벤트 모달 버튼
+    eventButtons.addEventListener("click", (e)=>{
+      const btn = e.target.closest("button[data-key]");
+      if (!btn) return;
+      if (currentTeamKey==null || currentIdx==null) return;
+      applyEvent(currentTeamKey, currentIdx, btn.dataset.key);
+      closeEventModal();
+    });
+
+    eventClose.addEventListener("click", closeEventModal);
+    eventBackdrop.addEventListener("click", (e)=>{ if (e.target===eventBackdrop) closeEventModal(); });
+
+    detailClose.addEventListener("click", closeDetailModal);
+    detailBackdrop.addEventListener("click", (e)=>{ if (e.target===detailBackdrop) closeDetailModal(); });
+
+    openNameEditBtn.addEventListener("click", ()=>{
+      if (detailTeamKey==null || detailIdx==null) return;
+      openNameModal(detailTeamKey, detailIdx);
+    });
+
+    nameModalClose.addEventListener("click", closeNameModal);
+    nameBackdrop.addEventListener("click", (e)=>{ if (e.target===nameBackdrop) closeNameModal(); });
+    nameSaveBtn.addEventListener("click", savePlayerName);
+    nameInput.addEventListener("keydown", (e)=>{ if (e.key==="Enter") savePlayerName(); });
+
+    // 득점 히스토리 모달
+    function openHistoryModal(side){
+      const items = state.scoreHistory.filter(x=>x.side===side);
+      const title = (side==="L") ? "왼쪽팀 득점 히스토리" : "오른쪽팀 득점 히스토리";
+      historyTitle.textContent = title;
+
+      if (items.length===0){
+        historyList.innerHTML = "<div class='logItem'>기록이 없습니다.</div>";
+      } else {
+        historyList.innerHTML = items.map((it, idx)=>`<div class='logItem'>#${idx+1} : ${it.text}</div>`).join("");
+      }
+      historyBackdrop.classList.add("open");
+    }
+    function closeHistoryModal(){ historyBackdrop.classList.remove("open"); }
+
+    document.querySelectorAll(".logAllBtn").forEach(b=>{
+      b.addEventListener("click", ()=>openHistoryModal(b.dataset.side));
+    });
+    historyClose.addEventListener("click", closeHistoryModal);
+    historyBackdrop.addEventListener("click", (e)=>{ if (e.target===historyBackdrop) closeHistoryModal(); });
+
+    // CSV 업로드
+    importBtn.addEventListener("click", ()=>{
+      fileInput.value = "";
+      fileInput.click();
+    });
+    fileInput.addEventListener("change", async ()=>{
+      const file = fileInput.files?.[0];
+      if (!file) return;
+      const text = await file.text();
+      const parsed = parseCSV(text);
+
+      if (parsed.rows.length===0){
+        alert("CSV에서 데이터를 못 읽었어요.\n권장 형식: team,teamName,number,name\nteam은 A,B,C");
+        return;
+      }
+      applyRoster(parsed);
+    });
+
+    hardResetBtn.addEventListener("click", hardResetAll);
+
+    // 시작 렌더
+    render();
+  </script>
+  <script>
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("./sw.js").catch(console.log);
+    });
+  }
+</script>
+</body>
+</html>
