@@ -1,8 +1,17 @@
-const ALLOWED_ORIGIN = "https://choiyongwoo.github.io";
+const ALLOWED_ORIGINS = new Set([
+  "https://volley-record-page.com",
+  "https://www.volley-record-page.com",
+  // migration window: keep old GitHub Pages domain allowed temporarily.
+  "https://choiyongwoo.github.io"
+]);
 const CLASS_ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
 
+function isAllowedOrigin(origin) {
+  return !!origin && ALLOWED_ORIGINS.has(origin);
+}
+
 function corsHeaders(origin) {
-  if (!origin || origin !== ALLOWED_ORIGIN) {
+  if (!isAllowedOrigin(origin)) {
     return {
       "Content-Type": "application/json; charset=utf-8",
       "Cache-Control": "no-store"
@@ -59,7 +68,7 @@ async function handleGet(url, env, origin) {
 }
 
 async function handlePost(request, env, origin) {
-  if (origin && origin !== ALLOWED_ORIGIN) {
+  if (origin && !isAllowedOrigin(origin)) {
     return json({ error: "origin not allowed" }, 403, origin);
   }
 
@@ -99,7 +108,7 @@ export default {
     const origin = request.headers.get("Origin") || "";
 
     if (request.method === "OPTIONS") {
-      if (origin !== ALLOWED_ORIGIN) {
+      if (!isAllowedOrigin(origin)) {
         return json({ error: "origin not allowed" }, 403, origin);
       }
       return new Response(null, {

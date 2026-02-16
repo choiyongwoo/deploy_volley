@@ -50,5 +50,7 @@ npx wrangler deploy
 ```
 
 주의:
-- CORS는 `https://choiyongwoo.github.io`만 허용됩니다.
+- CORS 허용 origin에 아래 도메인이 포함되어야 합니다.
+  - `https://volley-record-page.com`
+  - `https://www.volley-record-page.com`
 - 응답은 `Cache-Control: no-store`입니다.

@@ -19,20 +19,28 @@ python3 -m http.server 8080
 
 - `http://localhost:8080/`
 
-## GitHub Pages 배포
+## Cloudflare Pages 배포
 
-1. 기본 브랜치를 `main`으로 사용합니다.
-2. `main` 브랜치에 push 하면 `.github/workflows/deploy-pages.yml`이 실행됩니다.
-3. GitHub 저장소 `Settings > Pages`에서 Build and deployment를 `GitHub Actions`로 설정합니다.
-4. 배포 URL에서 아래를 확인합니다.
+1. Cloudflare Pages에서 **GitHub 연동**으로 프로젝트를 생성합니다.
+2. Repository는 현재 저장소를 선택하고 Branch는 `main`으로 지정합니다.
+3. Framework preset은 `None`, Build command는 비우고 Build output directory는 `/`로 설정합니다.
+4. Custom domains에 아래를 연결합니다.
+
+- `volley-record-page.com`
+- `www.volley-record-page.com` (선택)
+
+5. 배포 URL에서 아래를 확인합니다.
 
 - `/` 접속 시 메인 홈 노출
 - 홈 > 기능연습 > 버튼 클릭 시 `practice/index.html?slot=n` 로드
 - 홈 > 실전게임 > 기록원 클릭 시 `volleyball/index.html` 로드
 
+참고:
+- 기존 GitHub Pages를 계속 켜둘 수 있지만, 운영 URL을 Cloudflare로 고정할 계획이면 비활성화를 권장합니다.
+
 ### 정적 파일 캐시 버전 규칙
 
-GitHub Pages 캐시로 인해 일반 새로고침에서 예전 JS가 남을 수 있으므로, 주요 스크립트 URL에 `?v=...`를 사용합니다.
+Cloudflare Pages 캐시로 인해 일반 새로고침에서 예전 JS가 남을 수 있으므로, 주요 스크립트 URL에 `?v=...`를 사용합니다.
 
 - 현재 버전: `20260216-4`
 - 다음 배포에서 `gate.js` 또는 `firebase.config.js`를 수정했다면, `index.html`, `practice/index.html`, `volleyball/index.html`, `admin.html`의 `?v=` 값을 함께 증가시키세요.
@@ -46,6 +54,7 @@ GitHub Pages 캐시로 인해 일반 새로고침에서 예전 JS가 남을 수 
 3. `ADMIN_PASSWORD` secret 등록
 4. `npx wrangler deploy`
 5. Worker URL을 `firebase.config.js`의 `window.GATE_API_BASE`에 입력
+6. Worker CORS 허용 origin에 사이트 도메인(`https://volley-record-page.com`, `https://www.volley-record-page.com`)이 포함되어야 합니다.
 
 상세 절차는 `worker/README.md`를 참고하세요.
 
