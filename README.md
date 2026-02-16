@@ -34,7 +34,7 @@ python3 -m http.server 8080
 
 GitHub Pages 캐시로 인해 일반 새로고침에서 예전 JS가 남을 수 있으므로, 주요 스크립트 URL에 `?v=...`를 사용합니다.
 
-- 현재 버전: `20260216-2`
+- 현재 버전: `20260216-3`
 - 다음 배포에서 `gate.js` 또는 `firebase.config.js`를 수정했다면, `index.html`, `practice/index.html`, `volleyball/index.html`, `admin.html`의 `?v=` 값을 함께 증가시키세요.
 
 ## Firebase 연동/게이트 설정
@@ -46,6 +46,7 @@ GitHub Pages 캐시로 인해 일반 새로고침에서 예전 JS가 남을 수 
 3. 루트 `firebase.config.js`에 Web SDK 값 입력
 4. `window.CLASS_ID` 확인 (기본: `public-class-1`)
 5. `window.ADMIN_EMAILS`(또는 `window.ADMIN_EMAIL`)에 관리자 Google 이메일 입력
+6. (선택) `window.__VB_GATE_CONFIG__.prefetchRequired = true`를 페이지에서 설정하면, 선조회 실패 시 즉시 잠금으로 동작합니다. 기본값은 `false`입니다.
 
 ### Firestore 문서 경로
 
