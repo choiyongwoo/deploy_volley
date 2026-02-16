@@ -1,4 +1,5 @@
 const ALLOWED_ORIGINS = new Set([
+  "https://volley-record.pages.dev",
   "https://volley-record-page.com",
   "https://www.volley-record-page.com",
   // migration window: keep old GitHub Pages domain allowed temporarily.
