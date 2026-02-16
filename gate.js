@@ -7,6 +7,8 @@
   var configPath = cfg.configPath || "./firebase.config.js";
   var redirectOnLock = !!cfg.redirectOnLock;
   var redirectTo = cfg.redirectTo || "./index.html";
+  var pendingTimeoutMs = Number(cfg.pendingTimeoutMs || 8000);
+  var pendingTimer = null;
 
   window.__VB_GATE_IS_OPEN__ = false;
   window.__VB_GATE_READY__ = false;
@@ -71,7 +73,9 @@
   }
 
   function lockPage(reason) {
+    clearPendingTimer();
     window.__VB_GATE_IS_OPEN__ = false;
+    window.__VB_GATE_READY__ = true;
     setPending(false);
     showOverlay("수업이 잠겨 있어요", reason || "관리자가 수업을 열 때까지 기다려 주세요.");
     emitGateEvent("vb-gate-change", { open: false, reason: reason || "locked" });
@@ -86,6 +90,7 @@
   }
 
   function openPage() {
+    clearPendingTimer();
     window.__VB_GATE_IS_OPEN__ = true;
     window.__VB_GATE_READY__ = true;
     setPending(false);
@@ -119,9 +124,19 @@
     });
   }
 
+  function clearPendingTimer() {
+    if (!pendingTimer) return;
+    clearTimeout(pendingTimer);
+    pendingTimer = null;
+  }
+
   async function initGate() {
     ensureGateStyle();
     setPending(true);
+    clearPendingTimer();
+    pendingTimer = setTimeout(function () {
+      lockPage("게이트 확인이 지연되고 있습니다. 잠시 후 새로고침해 주세요.");
+    }, pendingTimeoutMs);
 
     try {
       if (!window.firebase || !firebase.firestore) {
@@ -157,10 +172,14 @@
         } else {
           lockPage("현재 수업이 닫혀 있습니다.");
         }
-      }, function () {
-        lockPage("서버 상태를 확인할 수 없어 접근이 잠겨 있습니다.");
+      }, function (err) {
+        console.warn("[gate] onSnapshot failed:", err);
+        var msg = "서버 상태를 확인할 수 없어 접근이 잠겨 있습니다.";
+        if (err && err.message) msg += " (" + err.message + ")";
+        lockPage(msg);
       });
-    } catch (_) {
+    } catch (err) {
+      console.warn("[gate] init failed:", err);
       lockPage("게이트 확인에 실패해 접근이 차단되었습니다.");
     }
   }
