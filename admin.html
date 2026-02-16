@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>배구수업 관리자</title>
+  <style>
+    :root {
+      --bg: #f3f6ff;
+      --panel: #ffffff;
+      --line: #dbe7ff;
+      --text: #0f172a;
+      --muted: #64748b;
+      --ok: #16a34a;
+      --danger: #dc2626;
+      --accent: #2563eb;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans KR", sans-serif;
+      color: var(--text);
+      background: radial-gradient(1200px 500px at 50% -150px, rgba(37,99,235,.25), transparent 70%), var(--bg);
+    }
+    .wrap { max-width: 760px; margin: 0 auto; padding: 20px; }
+    .title { font-size: 28px; font-weight: 900; margin: 6px 0 14px; }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 14px;
+      box-shadow: 0 10px 24px rgba(15,23,42,.08);
+      margin-bottom: 12px;
+    }
+    .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    .sp { justify-content: space-between; }
+    .btn {
+      border: 1px solid #cfe0ff;
+      background: #fff;
+      border-radius: 12px;
+      padding: 10px 14px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+    .btn:disabled { opacity: .45; cursor: not-allowed; }
+    .btn.primary { background: #eaf1ff; border-color: #bcd1ff; }
+    .btn.open { background: rgba(22,163,74,.12); border-color: rgba(22,163,74,.35); }
+    .btn.close { background: rgba(220,38,38,.12); border-color: rgba(220,38,38,.35); }
+    .pill {
+      display: inline-block;
+      border-radius: 999px;
+      border: 1px solid #cfe0ff;
+      padding: 4px 10px;
+      font-size: 12px;
+      font-weight: 800;
+      color: #1e3a8a;
+      background: #eff6ff;
+    }
+    .state { font-size: 18px; font-weight: 900; }
+    .state.open { color: var(--ok); }
+    .state.closed { color: var(--danger); }
+    .muted { color: var(--muted); font-size: 13px; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    .note {
+      width: 100%;
+      border: 1px solid #cfe0ff;
+      border-radius: 12px;
+      padding: 10px 12px;
+      font: inherit;
+      min-height: 80px;
+      resize: vertical;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="title">배구수업 관리자</div>
+
+    <div class="card">
+      <div class="row sp">
+        <div>
+          <div><span class="pill">관리자 계정</span></div>
+          <div id="authLine" class="muted" style="margin-top:8px;">로그인 확인 중...</div>
+          <div id="roleLine" class="muted">권한 확인 중...</div>
+        </div>
+        <div class="row">
+          <button id="loginBtn" class="btn primary" type="button">Google 로그인</button>
+          <button id="logoutBtn" class="btn" type="button">로그아웃</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="row sp">
+        <div>
+          <div><span class="pill">수업 게이트</span></div>
+          <div id="gateState" class="state closed" style="margin-top:8px;">잠김</div>
+          <div id="gateMeta" class="muted">상태를 읽는 중...</div>
+          <div class="muted" style="margin-top:4px;">경로: <span class="mono" id="gatePath"></span></div>
+        </div>
+        <div class="row">
+          <button id="openBtn" class="btn open" type="button">수업 열기 (ON)</button>
+          <button id="closeBtn" class="btn close" type="button">수업 닫기 (OFF)</button>
+        </div>
+      </div>
+
+      <div style="margin-top:12px;">
+        <label class="muted" for="noteInput">변경 메모(선택)</label>
+        <textarea id="noteInput" class="note" placeholder="예: 2교시 시작 / 수행평가 종료"></textarea>
+      </div>
+
+      <div id="infoLine" class="muted" style="margin-top:10px;">준비 중...</div>
+    </div>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="./firebase.config.js"></script>
+  <script>
+    const loginBtn = document.getElementById("loginBtn");
+    const logoutBtn = document.getElementById("logoutBtn");
+    const openBtn = document.getElementById("openBtn");
+    const closeBtn = document.getElementById("closeBtn");
+    const authLine = document.getElementById("authLine");
+    const roleLine = document.getElementById("roleLine");
+    const gateState = document.getElementById("gateState");
+    const gateMeta = document.getElementById("gateMeta");
+    const gatePath = document.getElementById("gatePath");
+    const infoLine = document.getElementById("infoLine");
+    const noteInput = document.getElementById("noteInput");
+
+    if (!firebase.apps.length) firebase.initializeApp(window.FB_CONFIG);
+
+    const db = firebase.firestore();
+    const auth = firebase.auth();
+    const provider = new firebase.auth.GoogleAuthProvider();
+
+    const classId = String(window.CLASS_ID || "public-class-1").trim() || "public-class-1";
+    const adminEmail = String(window.ADMIN_EMAIL || "").trim().toLowerCase();
+    const gateRef = db.collection("classes").doc(classId).collection("control").doc("gate");
+
+    gatePath.textContent = `classes/${classId}/control/gate`;
+
+    let currentUser = null;
+    let isAdmin = false;
+
+    function fmtTime(ts) {
+      if (!ts) return "-";
+      const d = ts.toDate ? ts.toDate() : new Date(ts);
+      return d.toLocaleString("ko-KR");
+    }
+
+    function setGateUi(open, metaText) {
+      gateState.textContent = open ? "열림" : "잠김";
+      gateState.classList.toggle("open", open);
+      gateState.classList.toggle("closed", !open);
+      gateMeta.textContent = metaText;
+    }
+
+    function updateAuthUi() {
+      authLine.textContent = currentUser
+        ? `로그인: ${currentUser.email || currentUser.uid}`
+        : "로그인: 없음";
+
+      if (!adminEmail) {
+        roleLine.textContent = "경고: firebase.config.js의 ADMIN_EMAIL이 비어 있습니다.";
+      } else if (isAdmin) {
+        roleLine.textContent = `권한: 관리자 (${adminEmail})`;
+      } else {
+        roleLine.textContent = `권한: 일반 사용자 (관리자: ${adminEmail})`;
+      }
+
+      loginBtn.disabled = !!currentUser;
+      logoutBtn.disabled = !currentUser;
+      openBtn.disabled = !isAdmin;
+      closeBtn.disabled = !isAdmin;
+
+      infoLine.textContent = isAdmin
+        ? "관리자 권한으로 ON/OFF를 변경할 수 있습니다."
+        : "관리자 계정으로 로그인해야 ON/OFF를 변경할 수 있습니다.";
+    }
+
+    auth.onAuthStateChanged((user) => {
+      currentUser = user;
+      const email = String(user?.email || "").toLowerCase();
+      isAdmin = !!(email && adminEmail && email === adminEmail);
+      updateAuthUi();
+    });
+
+    gateRef.onSnapshot((snap) => {
+      if (!snap.exists) {
+        setGateUi(false, "문서 없음 (기본 잠김)");
+        return;
+      }
+      const d = snap.data() || {};
+      const open = d.open === true;
+      const by = d.updatedByEmail || d.updatedByUid || "-";
+      const at = fmtTime(d.updatedAt);
+      const note = d.note ? ` / 메모: ${d.note}` : "";
+      setGateUi(open, `최근 변경: ${by} / ${at}${note}`);
+    }, (err) => {
+      setGateUi(false, "게이트 상태를 읽을 수 없습니다.");
+      infoLine.textContent = `오류: ${err.message || err}`;
+    });
+
+    loginBtn.addEventListener("click", async () => {
+      try {
+        await auth.signInWithPopup(provider);
+      } catch (err) {
+        alert(`로그인 실패: ${err.message || err}`);
+      }
+    });
+
+    logoutBtn.addEventListener("click", async () => {
+      try {
+        await auth.signOut();
+      } catch (err) {
+        alert(`로그아웃 실패: ${err.message || err}`);
+      }
+    });
+
+    async function setGate(open) {
+      if (!isAdmin || !currentUser) {
+        alert("관리자 계정으로 로그인해야 합니다.");
+        return;
+      }
+      try {
+        await gateRef.set({
+          open: !!open,
+          note: (noteInput.value || "").trim(),
+          updatedByUid: currentUser.uid,
+          updatedByEmail: currentUser.email || "",
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+      } catch (err) {
+        alert(`게이트 변경 실패: ${err.message || err}`);
+      }
+    }
+
+    openBtn.addEventListener("click", () => { void setGate(true); });
+    closeBtn.addEventListener("click", () => { void setGate(false); });
+
+    updateAuthUi();
+  </script>
+</body>
+</html>

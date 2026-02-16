@@ -1,10 +1,11 @@
 # 배구수업 웹앱
 
-정적 웹앱 3개 페이지로 구성됩니다.
+정적 웹앱 4개 페이지로 구성됩니다.
 
 - 메인 앱(홈): `index.html`
 - 기능연습: `practice/index.html`
 - 실전게임 기록원: `volleyball/index.html`
+- 관리자 게이트: `admin.html`
 
 ## 로컬 실행
 
@@ -29,35 +30,74 @@ python3 -m http.server 8080
 - 홈 > 기능연습 > 버튼 클릭 시 `practice/index.html?slot=n` 로드
 - 홈 > 실전게임 > 기록원 클릭 시 `volleyball/index.html` 로드
 
-## Firebase 연동 설정
+## Firebase 연동/게이트 설정
 
-코드에는 Firestore 동기화가 이미 연결되어 있습니다. 콘솔 값만 넣으면 동작합니다.
+코드에는 Firestore 동기화 + 관리자 ON/OFF 게이트가 연결되어 있습니다.
 
 1. Firebase 콘솔에서 프로젝트/웹앱 생성
 2. Firestore Database 생성
 3. 루트 `firebase.config.js`에 Web SDK 값 입력
-4. 필요 시 `window.CLASS_ID` 변경 (기본: `public-class-1`)
+4. `window.CLASS_ID` 확인 (기본: `public-class-1`)
+5. `window.ADMIN_EMAIL`에 관리자 Google 이메일 입력
 
 ### Firestore 문서 경로
 
+- `classes/{CLASS_ID}/control/gate` (관리자 게이트)
 - `classes/{CLASS_ID}/states/app_shell`
 - `classes/{CLASS_ID}/states/practice_slot_{slot}`
 - `classes/{CLASS_ID}/states/scoreboard`
 
-### Firestore Rules 예시(공개 테스트용)
+### Firestore Rules 적용
+
+저장소의 `firestore.rules` 내용을 Firebase 콘솔 Rules 탭에 적용하세요.
+
+관리자 게이트 규칙 핵심:
+
+- `control/gate`: 읽기 가능, 쓰기는 관리자만
+- `states/*`: 관리자 또는 gate가 열린 경우에만 read/write 가능
+
+## 관리자 운영 흐름
+
+1. `admin.html` 접속
+2. 관리자 Google 계정으로 로그인
+3. `수업 열기 (ON)` 클릭 시 학생 페이지 입장 허용
+4. `수업 닫기 (OFF)` 클릭 시 즉시 잠금
+
+기본 정책:
+
+- gate 문서가 없거나 `open=false`이면 학생 페이지 차단
+- 게이트 상태 확인 실패 시 차단(기본 거부)
+
+## 참고 Rules 템플릿
 
 ```txt
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /classes/public-class-1/states/{docId} {
-      allow read, write: if true;
+    function isAdmin() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && request.auth.token.email in [\"teacher@example.com\"];
+    }
+
+    function gateOpen(classId) {
+      return exists(/databases/$(database)/documents/classes/$(classId)/control/gate)
+        && get(/databases/$(database)/documents/classes/$(classId)/control/gate).data.open == true;
+    }
+
+    match /classes/{classId}/control/{docId} {
+      allow read: if docId == \"gate\";
+      allow write: if docId == \"gate\" && isAdmin();
+    }
+
+    match /classes/{classId}/states/{docId} {
+      allow read, write: if isAdmin() || gateOpen(classId);
     }
   }
 }
 ```
 
-주의: 위 규칙은 누구나 수정 가능하므로 운영 시 인증/권한 규칙으로 교체하세요.
+주의: `teacher@example.com`은 실제 관리자 이메일로 바꾸고, `firebase.config.js`의 `window.ADMIN_EMAIL`과 동일하게 맞추세요.
 
 ## 현재 저장 키
 

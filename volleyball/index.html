@@ -4,6 +4,14 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>배구 점수판</title>
+  <script>
+    window.__VB_GATE_CONFIG__ = {
+      configPath: "../firebase.config.js",
+      redirectOnLock: true,
+      redirectTo: "../index.html"
+    };
+  </script>
+  <script src="../gate.js"></script>
   <style>
     :root{
       --bg1:#eef5ff;
@@ -726,6 +734,10 @@ body { min-height: 100vh; }
       return need.every(k => typeof cfg[k] === "string" && cfg[k].trim() !== "");
     }
 
+    function canWriteCloud(){
+      return window.__VB_GATE_IS_OPEN__ === true;
+    }
+
     function initScoreCloudRef(){
       if (!window.firebase || !hasFirebaseConfig(window.FB_CONFIG)) return null;
       try{
@@ -756,12 +768,14 @@ body { min-height: 100vh; }
     }
 
     function scheduleScoreCloudSave(){
+      if (!canWriteCloud()) return;
       if (!scoreCloudRef || scoreApplyingRemote || typeof state === "undefined") return;
       if (scoreCloudSaveTimer) clearTimeout(scoreCloudSaveTimer);
       scoreCloudSaveTimer = setTimeout(() => { void pushScoreCloud(); }, 250);
     }
 
     async function pushScoreCloud(){
+      if (!canWriteCloud()) return;
       if (!scoreCloudRef || scoreApplyingRemote || typeof state === "undefined") return;
       try{
         const payload = JSON.parse(JSON.stringify(snapshotScoreboardState()));
@@ -858,7 +872,7 @@ body { min-height: 100vh; }
           const remote = snap.data()?.state;
           if (remote) applyRemoteScoreboardState(remote);
         }else{
-          scheduleScoreCloudSave();
+          if (canWriteCloud()) scheduleScoreCloudSave();
         }
       }catch(err){
         console.warn("[firebase] scoreboard cloud initial load failed:", err);
@@ -873,6 +887,10 @@ body { min-height: 100vh; }
         console.warn("[firebase] scoreboard cloud realtime failed:", err);
       });
     }
+
+    window.addEventListener("vb-gate-open", () => {
+      scheduleScoreCloudSave();
+    });
 
     function currentTeamsRaw(){
       return MATCH_CYCLE[state.matchIndex] ?? ["A","B"];

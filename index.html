@@ -4,6 +4,14 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>🏐배구수업🏐</title>
+<script>
+  window.__VB_GATE_CONFIG__ = {
+    configPath: "./firebase.config.js",
+    redirectOnLock: false,
+    redirectTo: "./index.html"
+  };
+</script>
+<script src="./gate.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
@@ -261,6 +269,10 @@ iframe#frame{
     return need.every(k => typeof cfg[k] === "string" && cfg[k].trim() !== "");
   }
 
+  function canWriteCloud(){
+    return window.__VB_GATE_IS_OPEN__ === true;
+  }
+
   function initAppCloudRef(){
     if (!window.firebase || !hasFirebaseConfig(window.FB_CONFIG)) return null;
     try{
@@ -275,12 +287,14 @@ iframe#frame{
   }
 
   function scheduleAppCloudSave(){
+    if (!canWriteCloud()) return;
     if (!appCloudRef || appApplyingRemote || typeof appState === "undefined") return;
     if (appCloudSaveTimer) clearTimeout(appCloudSaveTimer);
     appCloudSaveTimer = setTimeout(() => { void pushAppCloud(); }, 250);
   }
 
   async function pushAppCloud(){
+    if (!canWriteCloud()) return;
     if (!appCloudRef || appApplyingRemote || typeof appState === "undefined") return;
     try{
       await appCloudRef.set({
@@ -406,7 +420,7 @@ async function startAppCloudSync(){
       const remote = snap.data()?.state;
       if (remote) applyRemoteAppState(remote);
     }else{
-      scheduleAppCloudSave();
+      if (canWriteCloud()) scheduleAppCloudSave();
     }
   }catch(err){
     console.warn("[firebase] app cloud initial load failed:", err);
@@ -421,6 +435,10 @@ async function startAppCloudSync(){
     console.warn("[firebase] app cloud realtime failed:", err);
   });
 }
+
+window.addEventListener("vb-gate-open", () => {
+  scheduleAppCloudSave();
+});
 
   function show(view){
   document.querySelectorAll(".view").forEach(v => v.classList.remove("on"));

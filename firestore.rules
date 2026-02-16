@@ -1,0 +1,25 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAdmin() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && request.auth.token.email in ["xhtnsdl1904@gmail.com"];
+    }
+
+    function gateOpen(classId) {
+      return exists(/databases/$(database)/documents/classes/$(classId)/control/gate)
+        && get(/databases/$(database)/documents/classes/$(classId)/control/gate).data.open == true;
+    }
+
+    match /classes/{classId}/control/{docId} {
+      allow read: if docId == "gate";
+      allow write: if docId == "gate" && isAdmin();
+    }
+
+    match /classes/{classId}/states/{docId} {
+      allow read, write: if isAdmin() || gateOpen(classId);
+    }
+  }
+}

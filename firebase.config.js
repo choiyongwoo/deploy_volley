@@ -10,3 +10,6 @@ window.FB_CONFIG = {
 
 // 공유 단위(문서 경로): classes/{CLASS_ID}/states/*
 window.CLASS_ID = "public-class-1";
+
+// 관리자 Google 계정(소문자 이메일 권장)
+window.ADMIN_EMAIL = "xhtnsdl1904@gmail.com";

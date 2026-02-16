@@ -4,6 +4,14 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>배구 기능 향상도 Check!</title>
+  <script>
+    window.__VB_GATE_CONFIG__ = {
+      configPath: "../firebase.config.js",
+      redirectOnLock: true,
+      redirectTo: "../index.html"
+    };
+  </script>
+  <script src="../gate.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
@@ -676,6 +684,10 @@ function hasFirebaseConfig(cfg){
   return need.every(k => typeof cfg[k] === "string" && cfg[k].trim() !== "");
 }
 
+function canWriteCloud(){
+  return window.__VB_GATE_IS_OPEN__ === true;
+}
+
 function initPracticeCloudRef(){
   if (!window.firebase || !hasFirebaseConfig(window.FB_CONFIG)) return null;
   try{
@@ -702,12 +714,14 @@ function snapshotPracticeState(){
 }
 
 function schedulePracticeCloudSave(){
+  if (!canWriteCloud()) return;
   if (!practiceCloudRef || practiceApplyingRemote || typeof state === "undefined") return;
   if (practiceCloudSaveTimer) clearTimeout(practiceCloudSaveTimer);
   practiceCloudSaveTimer = setTimeout(() => { void pushPracticeCloud(); }, 250);
 }
 
 async function pushPracticeCloud(){
+  if (!canWriteCloud()) return;
   if (!practiceCloudRef || practiceApplyingRemote || typeof state === "undefined") return;
   try{
     const payload = JSON.parse(JSON.stringify(snapshotPracticeState()));
@@ -917,7 +931,7 @@ async function startPracticeCloudSync(){
       const remote = snap.data()?.state;
       if (remote) applyRemotePracticeState(remote);
     }else{
-      schedulePracticeCloudSave();
+      if (canWriteCloud()) schedulePracticeCloudSave();
     }
   }catch(err){
     console.warn("[firebase] practice cloud initial load failed:", err);
@@ -932,6 +946,10 @@ async function startPracticeCloudSync(){
     console.warn("[firebase] practice cloud realtime failed:", err);
   });
 }
+
+window.addEventListener("vb-gate-open", () => {
+  schedulePracticeCloudSave();
+});
 
 /* 학교/학년/반 값 반영 + 저장 */
 if (schoolNameEl) schoolNameEl.value = state.meta.school || "";
