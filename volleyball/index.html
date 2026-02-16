@@ -636,9 +636,29 @@ body { min-height: 100vh; }
     </div>
   </div>
 
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+  <script src="../firebase.config.js"></script>
   <script>
     const KEY = "vb_scoreboard_full_v1";
+    const SCORE_DOC_ID = "scoreboard";
+    const SCORE_CLIENT_KEY = `${KEY}__client_id`;
     const MATCH_CYCLE = [["A","B"],["B","C"],["C","A"]];
+
+    const SCORE_CLIENT_ID = (() => {
+      const saved = localStorage.getItem(SCORE_CLIENT_KEY);
+      if (saved) return saved;
+      const next = (window.crypto && crypto.randomUUID)
+        ? crypto.randomUUID()
+        : `score-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      localStorage.setItem(SCORE_CLIENT_KEY, next);
+      return next;
+    })();
+
+    let scoreCloudRef = null;
+    let scoreCloudUnsub = null;
+    let scoreCloudSaveTimer = null;
+    let scoreApplyingRemote = false;
 
     const matchPill = document.getElementById("matchPill");
 
@@ -694,8 +714,66 @@ body { min-height: 100vh; }
     const historyClose = document.getElementById("historyModalClose");
     const historyList = document.getElementById("historyModalList");
 
-    function save(){ localStorage.setItem(KEY, JSON.stringify(state)); }
+    function save(){
+      localStorage.setItem(KEY, JSON.stringify(state));
+      scheduleScoreCloudSave();
+    }
     function load(){ try { return JSON.parse(localStorage.getItem(KEY)); } catch { return null; } }
+
+    function hasFirebaseConfig(cfg){
+      if (!cfg || typeof cfg !== "object") return false;
+      const need = ["apiKey", "authDomain", "projectId", "appId"];
+      return need.every(k => typeof cfg[k] === "string" && cfg[k].trim() !== "");
+    }
+
+    function initScoreCloudRef(){
+      if (!window.firebase || !hasFirebaseConfig(window.FB_CONFIG)) return null;
+      try{
+        if (!firebase.apps.length) firebase.initializeApp(window.FB_CONFIG);
+        const db = firebase.firestore();
+        const classId = String(window.CLASS_ID || "public-class-1").trim() || "public-class-1";
+        return db.collection("classes").doc(classId).collection("states").doc(SCORE_DOC_ID);
+      }catch(err){
+        console.warn("[firebase] scoreboard cloud init failed:", err);
+        return null;
+      }
+    }
+
+    function snapshotScoreboardState(){
+      return {
+        matchIndex: state.matchIndex,
+        courtSwap: !!state.courtSwap,
+        teamNames: state.teamNames || { A:"", B:"", C:"" },
+        rosters: state.rosters || { A: defaultPlayers("A"), B: defaultPlayers("B"), C: defaultPlayers("C") },
+        scoreL: Number(state.scoreL || 0),
+        scoreR: Number(state.scoreR || 0),
+        setsL: Array.isArray(state.setsL) ? state.setsL : [false,false,false],
+        setsR: Array.isArray(state.setsR) ? state.setsR : [false,false,false],
+        scoreHistory: Array.isArray(state.scoreHistory) ? state.scoreHistory : [],
+        setLogs: Array.isArray(state.setLogs) ? state.setLogs : [],
+        actions: Array.isArray(state.actions) ? state.actions : []
+      };
+    }
+
+    function scheduleScoreCloudSave(){
+      if (!scoreCloudRef || scoreApplyingRemote || typeof state === "undefined") return;
+      if (scoreCloudSaveTimer) clearTimeout(scoreCloudSaveTimer);
+      scoreCloudSaveTimer = setTimeout(() => { void pushScoreCloud(); }, 250);
+    }
+
+    async function pushScoreCloud(){
+      if (!scoreCloudRef || scoreApplyingRemote || typeof state === "undefined") return;
+      try{
+        const payload = JSON.parse(JSON.stringify(snapshotScoreboardState()));
+        await scoreCloudRef.set({
+          state: payload,
+          updatedBy: SCORE_CLIENT_ID,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+      }catch(err){
+        console.warn("[firebase] scoreboard cloud save failed:", err);
+      }
+    }
 
     function defaultPlayers(prefix){
       return Array.from({length:9}, (_,i)=>({
@@ -731,21 +809,69 @@ body { min-height: 100vh; }
       actions: [] // undo stack
     };
 
-    // 보정
-    if (state.courtSwap === undefined) state.courtSwap = false;
-    if (!state.teamNames) state.teamNames = {A:"",B:"",C:""};
-    if (!state.rosters) state.rosters = {A:defaultPlayers("A"),B:defaultPlayers("B"),C:defaultPlayers("C")};
-    if (!state.scoreHistory) state.scoreHistory = [];
-    if (!state.setLogs) state.setLogs = [];
-    if (!state.actions) state.actions = [];
-    if (!state.setsL) state.setsL = [false,false,false];
-    if (!state.setsR) state.setsR = [false,false,false];
-    if (state.scoreL === undefined) state.scoreL = 0;
-    if (state.scoreR === undefined) state.scoreR = 0;
+    function sanitizeScoreboardState(target){
+      if (!target || typeof target !== "object") return target;
 
-    // 예전 scoreHistory가 문자열 배열이면 변환
-    if (Array.isArray(state.scoreHistory) && state.scoreHistory.length>0 && typeof state.scoreHistory[0] === "string"){
-      state.scoreHistory = state.scoreHistory.map(t => ({side:"L", text:t}));
+      if (target.courtSwap === undefined) target.courtSwap = false;
+      if (!target.teamNames) target.teamNames = {A:"",B:"",C:""};
+      if (!target.rosters) target.rosters = {A:defaultPlayers("A"),B:defaultPlayers("B"),C:defaultPlayers("C")};
+      if (!target.scoreHistory) target.scoreHistory = [];
+      if (!target.setLogs) target.setLogs = [];
+      if (!target.actions) target.actions = [];
+      if (!target.setsL) target.setsL = [false,false,false];
+      if (!target.setsR) target.setsR = [false,false,false];
+      if (target.scoreL === undefined) target.scoreL = 0;
+      if (target.scoreR === undefined) target.scoreR = 0;
+
+      // 예전 scoreHistory가 문자열 배열이면 변환
+      if (Array.isArray(target.scoreHistory) && target.scoreHistory.length > 0 && typeof target.scoreHistory[0] === "string"){
+        target.scoreHistory = target.scoreHistory.map(t => ({side:"L", text:t}));
+      }
+      return target;
+    }
+
+    sanitizeScoreboardState(state);
+
+    function applyRemoteScoreboardState(raw){
+      if (!raw || typeof raw !== "object") return;
+      const incoming = sanitizeScoreboardState(JSON.parse(JSON.stringify(raw)));
+      if (!incoming) return;
+
+      scoreApplyingRemote = true;
+      try{
+        Object.keys(state).forEach(k => delete state[k]);
+        Object.assign(state, incoming);
+        localStorage.setItem(KEY, JSON.stringify(state));
+        render();
+      } finally {
+        scoreApplyingRemote = false;
+      }
+    }
+
+    async function startScoreCloudSync(){
+      scoreCloudRef = initScoreCloudRef();
+      if (!scoreCloudRef) return;
+
+      try{
+        const snap = await scoreCloudRef.get();
+        if (snap.exists){
+          const remote = snap.data()?.state;
+          if (remote) applyRemoteScoreboardState(remote);
+        }else{
+          scheduleScoreCloudSave();
+        }
+      }catch(err){
+        console.warn("[firebase] scoreboard cloud initial load failed:", err);
+      }
+
+      scoreCloudUnsub = scoreCloudRef.onSnapshot((snap) => {
+        if (!snap.exists) return;
+        const doc = snap.data() || {};
+        if (doc.updatedBy && doc.updatedBy === SCORE_CLIENT_ID) return;
+        if (doc.state) applyRemoteScoreboardState(doc.state);
+      }, (err) => {
+        console.warn("[firebase] scoreboard cloud realtime failed:", err);
+      });
     }
 
     function currentTeamsRaw(){
@@ -1027,10 +1153,41 @@ body { min-height: 100vh; }
       save(); render();
     }
 
-    function hardResetAll(){
+    async function hardResetAll(){
       const ok = confirm("전체 리셋할까요?\n(팀명/세트/점수/로그/선수기록/불러온 명단이 모두 초기화됩니다)");
       if (!ok) return;
-      localStorage.removeItem(KEY);
+
+      const fresh = sanitizeScoreboardState({
+        matchIndex: 0,
+        courtSwap: false,
+        teamNames: { A:"", B:"", C:"" },
+        rosters: {
+          A: defaultPlayers("A"),
+          B: defaultPlayers("B"),
+          C: defaultPlayers("C")
+        },
+        scoreL: 0,
+        scoreR: 0,
+        setsL: [false,false,false],
+        setsR: [false,false,false],
+        scoreHistory: [],
+        setLogs: [],
+        actions: []
+      });
+
+      localStorage.setItem(KEY, JSON.stringify(fresh));
+      if (scoreCloudRef){
+        try{
+          const payload = JSON.parse(JSON.stringify(fresh));
+          await scoreCloudRef.set({
+            state: payload,
+            updatedBy: SCORE_CLIENT_ID,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+          }, { merge: true });
+        }catch(err){
+          console.warn("[firebase] scoreboard cloud reset failed:", err);
+        }
+      }
       location.reload();
     }
 
@@ -1316,6 +1473,7 @@ body { min-height: 100vh; }
 
     // 시작 렌더
     render();
+    void startScoreCloudSync();
   </script>
   <script>
   if ("serviceWorker" in navigator) {

@@ -226,11 +226,76 @@ iframe#frame{
     <iframe id="frame" src=""></iframe>
   </div>
 
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="./firebase.config.js"></script>
 <script>
   const APP_KEY = "vb_class_app_shell_v1";
+  const APP_DOC_ID = "app_shell";
+  const APP_CLIENT_KEY = `${APP_KEY}__client_id`;
 
-  function saveApp(){ localStorage.setItem(APP_KEY, JSON.stringify(appState)); }
+  const APP_CLIENT_ID = (() => {
+    const saved = localStorage.getItem(APP_CLIENT_KEY);
+    if (saved) return saved;
+    const next = (window.crypto && crypto.randomUUID)
+      ? crypto.randomUUID()
+      : `app-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    localStorage.setItem(APP_CLIENT_KEY, next);
+    return next;
+  })();
+
+  let appCloudRef = null;
+  let appCloudUnsub = null;
+  let appCloudSaveTimer = null;
+  let appApplyingRemote = false;
+
+  function saveApp(){
+    localStorage.setItem(APP_KEY, JSON.stringify(appState));
+    scheduleAppCloudSave();
+  }
   function loadApp(){ try { return JSON.parse(localStorage.getItem(APP_KEY)); } catch { return null; } }
+
+  function hasFirebaseConfig(cfg){
+    if (!cfg || typeof cfg !== "object") return false;
+    const need = ["apiKey", "authDomain", "projectId", "appId"];
+    return need.every(k => typeof cfg[k] === "string" && cfg[k].trim() !== "");
+  }
+
+  function initAppCloudRef(){
+    if (!window.firebase || !hasFirebaseConfig(window.FB_CONFIG)) return null;
+    try{
+      if (!firebase.apps.length) firebase.initializeApp(window.FB_CONFIG);
+      const db = firebase.firestore();
+      const classId = String(window.CLASS_ID || "public-class-1").trim() || "public-class-1";
+      return db.collection("classes").doc(classId).collection("states").doc(APP_DOC_ID);
+    }catch(err){
+      console.warn("[firebase] app cloud init failed:", err);
+      return null;
+    }
+  }
+
+  function scheduleAppCloudSave(){
+    if (!appCloudRef || appApplyingRemote || typeof appState === "undefined") return;
+    if (appCloudSaveTimer) clearTimeout(appCloudSaveTimer);
+    appCloudSaveTimer = setTimeout(() => { void pushAppCloud(); }, 250);
+  }
+
+  async function pushAppCloud(){
+    if (!appCloudRef || appApplyingRemote || typeof appState === "undefined") return;
+    try{
+      await appCloudRef.set({
+        state: {
+          school: appState.school || "",
+          items: Array.isArray(appState.items) ? appState.items : [],
+          nextId: Number(appState.nextId || 1)
+        },
+        updatedBy: APP_CLIENT_ID,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+    }catch(err){
+      console.warn("[firebase] app cloud save failed:", err);
+    }
+  }
 
   const homeView = document.getElementById("homeView");
   const gameView = document.getElementById("gameView");
@@ -294,6 +359,19 @@ function migrateToItems(old){
   };
 }
 
+function normalizeAppState(raw){
+  const migrated = migrateToItems(raw);
+  if (!migrated) return null;
+  const items = Array.isArray(migrated.items) ? migrated.items : [];
+  const maxId = items.length ? Math.max(...items.map(x => Number(x.id || 0))) : 0;
+  const nextId = Number(migrated.nextId || 0);
+  return {
+    school: migrated.school || "",
+    items,
+    nextId: nextId > maxId ? nextId : (maxId + 1)
+  };
+}
+
 const appState = migrateToItems(loaded) ?? {
   school: "",
   items: [
@@ -304,6 +382,45 @@ const appState = migrateToItems(loaded) ?? {
   nextId: 4
 };
 saveApp();
+
+function applyRemoteAppState(raw){
+  const next = normalizeAppState(raw);
+  if (!next) return;
+  appApplyingRemote = true;
+  appState.school = next.school;
+  appState.items = next.items;
+  appState.nextId = next.nextId;
+  localStorage.setItem(APP_KEY, JSON.stringify(appState));
+  schoolName.value = appState.school || "";
+  renderPracticeGrid();
+  appApplyingRemote = false;
+}
+
+async function startAppCloudSync(){
+  appCloudRef = initAppCloudRef();
+  if (!appCloudRef) return;
+
+  try{
+    const snap = await appCloudRef.get();
+    if (snap.exists){
+      const remote = snap.data()?.state;
+      if (remote) applyRemoteAppState(remote);
+    }else{
+      scheduleAppCloudSave();
+    }
+  }catch(err){
+    console.warn("[firebase] app cloud initial load failed:", err);
+  }
+
+  appCloudUnsub = appCloudRef.onSnapshot((snap) => {
+    if (!snap.exists) return;
+    const doc = snap.data() || {};
+    if (doc.updatedBy && doc.updatedBy === APP_CLIENT_ID) return;
+    if (doc.state) applyRemoteAppState(doc.state);
+  }, (err) => {
+    console.warn("[firebase] app cloud realtime failed:", err);
+  });
+}
 
   function show(view){
   document.querySelectorAll(".view").forEach(v => v.classList.remove("on"));
@@ -337,6 +454,7 @@ saveApp();
   });
 
   renderPracticeGrid();
+  void startAppCloudSync();
 
     // #1/#2/#3 클릭 → 기존 index.html 띄우기 (volleyball(2)의 index.html 그대로 사용)
   // (id로 아이템 찾기)

@@ -635,6 +635,9 @@
     </div>
   </div>
 
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="../firebase.config.js"></script>
 <script>
 /* =========================================================
    SLOT/KEY
@@ -642,9 +645,82 @@
 const SLOT = new URLSearchParams(location.search).get("slot") || "default";
 const KEY  = `vb_under_over_serve_v1__${SLOT}`;
 const STORAGE_PREFIX = "vb_under_over_serve_v1__";
+const PRACTICE_DOC_ID = `practice_slot_${SLOT}`;
+const PRACTICE_CLIENT_KEY = `${KEY}__client_id`;
 
-function save(){ localStorage.setItem(KEY, JSON.stringify(state)); }
+const PRACTICE_CLIENT_ID = (() => {
+  const saved = localStorage.getItem(PRACTICE_CLIENT_KEY);
+  if (saved) return saved;
+  const next = (window.crypto && crypto.randomUUID)
+    ? crypto.randomUUID()
+    : `practice-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  localStorage.setItem(PRACTICE_CLIENT_KEY, next);
+  return next;
+})();
+
+let practiceCloudRef = null;
+let practiceStatesRef = null;
+let practiceCloudUnsub = null;
+let practiceCloudSaveTimer = null;
+let practiceApplyingRemote = false;
+
+function save(){
+  localStorage.setItem(KEY, JSON.stringify(state));
+  schedulePracticeCloudSave();
+}
 function load(){ try { return JSON.parse(localStorage.getItem(KEY)); } catch { return null; } }
+
+function hasFirebaseConfig(cfg){
+  if (!cfg || typeof cfg !== "object") return false;
+  const need = ["apiKey", "authDomain", "projectId", "appId"];
+  return need.every(k => typeof cfg[k] === "string" && cfg[k].trim() !== "");
+}
+
+function initPracticeCloudRef(){
+  if (!window.firebase || !hasFirebaseConfig(window.FB_CONFIG)) return null;
+  try{
+    if (!firebase.apps.length) firebase.initializeApp(window.FB_CONFIG);
+    const db = firebase.firestore();
+    const classId = String(window.CLASS_ID || "public-class-1").trim() || "public-class-1";
+    practiceStatesRef = db.collection("classes").doc(classId).collection("states");
+    return practiceStatesRef.doc(PRACTICE_DOC_ID);
+  }catch(err){
+    console.warn("[firebase] practice cloud init failed:", err);
+    return null;
+  }
+}
+
+function snapshotPracticeState(){
+  return {
+    mode: state.mode,
+    roster: Array.isArray(state.roster) ? state.roster : [],
+    studentRecordsByDate: state.studentRecordsByDate || {},
+    itemRecordsByDate: state.itemRecordsByDate || {},
+    lastMetric: state.lastMetric || "under",
+    meta: state.meta || { school:"", grade:"", className:"" }
+  };
+}
+
+function schedulePracticeCloudSave(){
+  if (!practiceCloudRef || practiceApplyingRemote || typeof state === "undefined") return;
+  if (practiceCloudSaveTimer) clearTimeout(practiceCloudSaveTimer);
+  practiceCloudSaveTimer = setTimeout(() => { void pushPracticeCloud(); }, 250);
+}
+
+async function pushPracticeCloud(){
+  if (!practiceCloudRef || practiceApplyingRemote || typeof state === "undefined") return;
+  try{
+    const payload = JSON.parse(JSON.stringify(snapshotPracticeState()));
+    await practiceCloudRef.set({
+      state: payload,
+      slot: SLOT,
+      updatedBy: PRACTICE_CLIENT_ID,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+  }catch(err){
+    console.warn("[firebase] practice cloud save failed:", err);
+  }
+}
 
 function escapeHtml(s){
   return String(s).replace(/[&<>"']/g, m => ({
@@ -725,20 +801,27 @@ const state = load() ?? {
   meta: { school:"", grade:"", className:"" },
 };
 
-if (!state.meta) state.meta = { school:"", grade:"", className:"" };
-if (!state.studentRecordsByDate) state.studentRecordsByDate = {};
-if (!state.itemRecordsByDate) state.itemRecordsByDate = {};
-if (!Array.isArray(state.roster)) state.roster = makeRoster30();
+function sanitizePracticeState(target){
+  if (!target || typeof target !== "object") return target;
+  if (!target.meta) target.meta = { school:"", grade:"", className:"" };
+  if (!target.studentRecordsByDate) target.studentRecordsByDate = {};
+  if (!target.itemRecordsByDate) target.itemRecordsByDate = {};
+  if (!Array.isArray(target.roster)) target.roster = makeRoster30();
+  target.lastMetric = ["under", "over", "serve"].includes(target.lastMetric) ? target.lastMetric : "under";
 
-// gender 기본값 보정
-state.roster = state.roster.map(s => ({
-  ...s,
-  gender: (s.gender === "F" || s.gender === "M") ? s.gender : "M"
-}));
+  // gender 기본값 보정
+  target.roster = target.roster.map(s => ({
+    ...s,
+    gender: (s.gender === "F" || s.gender === "M") ? s.gender : "M"
+  }));
 
-// 예전 recordsByDate가 있으면 itemRecordsByDate로 이관
-if (state.recordsByDate && !state.itemRecordsByDate) state.itemRecordsByDate = state.recordsByDate;
-if (state.recordsByDate) delete state.recordsByDate;
+  // 예전 recordsByDate가 있으면 itemRecordsByDate로 이관
+  if (target.recordsByDate && !target.itemRecordsByDate) target.itemRecordsByDate = target.recordsByDate;
+  if (target.recordsByDate) delete target.recordsByDate;
+  return target;
+}
+
+sanitizePracticeState(state);
 
 save();
 
@@ -790,6 +873,65 @@ const stuSaveBtn  = document.getElementById("stuSaveBtn");
 const stuDeleteBtn= document.getElementById("stuDeleteBtn");
 
 let currentStudentNumber = null;
+
+function applyRemotePracticeState(raw){
+  if (!raw || typeof raw !== "object") return;
+  const incoming = sanitizePracticeState(JSON.parse(JSON.stringify(raw)));
+  if (!incoming) return;
+
+  practiceApplyingRemote = true;
+  try{
+    Object.keys(state).forEach(k => delete state[k]);
+    Object.assign(state, incoming);
+    localStorage.setItem(KEY, JSON.stringify(state));
+
+    if (schoolNameEl) schoolNameEl.value = state.meta.school || "";
+    if (gradeEl) gradeEl.value = state.meta.grade || "";
+    if (classEl) classEl.value = state.meta.className || "";
+
+    renderGrid();
+    setMode(state.mode || "student");
+
+    if (currentStudentNumber != null){
+      const exists = Array.isArray(state.roster) && state.roster.some(s => Number(s.number) === Number(currentStudentNumber));
+      if (!exists){
+        closeStudent();
+      }else{
+        if (stuTitle) stuTitle.textContent = `#${currentStudentNumber} ${rosterName(currentStudentNumber)}`;
+        loadStudentInputsForDate();
+        renderStudentModal();
+      }
+    }
+  } finally {
+    practiceApplyingRemote = false;
+  }
+}
+
+async function startPracticeCloudSync(){
+  practiceCloudRef = initPracticeCloudRef();
+  if (!practiceCloudRef) return;
+
+  try{
+    const snap = await practiceCloudRef.get();
+    if (snap.exists){
+      const remote = snap.data()?.state;
+      if (remote) applyRemotePracticeState(remote);
+    }else{
+      schedulePracticeCloudSave();
+    }
+  }catch(err){
+    console.warn("[firebase] practice cloud initial load failed:", err);
+  }
+
+  practiceCloudUnsub = practiceCloudRef.onSnapshot((snap) => {
+    if (!snap.exists) return;
+    const doc = snap.data() || {};
+    if (doc.updatedBy && doc.updatedBy === PRACTICE_CLIENT_ID) return;
+    if (doc.state) applyRemotePracticeState(doc.state);
+  }, (err) => {
+    console.warn("[firebase] practice cloud realtime failed:", err);
+  });
+}
 
 /* 학교/학년/반 값 반영 + 저장 */
 if (schoolNameEl) schoolNameEl.value = state.meta.school || "";
@@ -1143,7 +1285,7 @@ function isDefaultName(name){
   return /^학생\s*\d+$/i.test(t);
 }
 
-function loadAllSlots(){
+async function loadAllSlots(){
   const list = [];
   for (let i=0; i<localStorage.length; i++){
     const k = localStorage.key(i);
@@ -1153,12 +1295,27 @@ function loadAllSlots(){
       if (saved) list.push(saved);
     }catch{}
   }
+
+  if (practiceStatesRef){
+    try{
+      const snap = await practiceStatesRef.get();
+      snap.forEach((doc) => {
+        if (!doc.id.startsWith("practice_slot_")) return;
+        const remote = doc.data()?.state;
+        if (!remote) return;
+        list.push(sanitizePracticeState(JSON.parse(JSON.stringify(remote))));
+      });
+    }catch(err){
+      console.warn("[firebase] practice top5 load failed:", err);
+    }
+  }
+
   return list;
 }
 
 // 모든 슬롯에서 numKey별 name/gender/best(under/over/serve) 집계
-function buildAggregateBest(){
-  const all = loadAllSlots();
+async function buildAggregateBest(){
+  const all = await loadAllSlots();
   const agg = new Map(); // numKey -> { numKey, name, gender, best:{under,over,serve} }
 
   for (const saved of all){
@@ -1251,11 +1408,11 @@ function medal(rank){
   return String(rank);
 }
 
-function renderTop5AllSlots(){
+async function renderTop5AllSlots(){
   // itemSection 안에 mount가 없으면 그냥 종료
   if (!topMount) return;
 
-  const agg = buildAggregateBest();
+  const agg = await buildAggregateBest();
   const metrics = [
     { key:"under", label:"언더핸드패스" },
     { key:"over",  label:"오버핸드패스" },
@@ -1320,7 +1477,7 @@ function renderTop5AllSlots(){
 }
 
 if (topRefreshBtn){
-  topRefreshBtn.addEventListener("click", ()=> renderTop5AllSlots());
+  topRefreshBtn.addEventListener("click", ()=> { void renderTop5AllSlots(); });
 }
 
 /* =========================================================
@@ -1398,10 +1555,33 @@ if (rosterFile){
    전체 초기화
 ========================================================= */
 if (resetAllBtn){
-  resetAllBtn.addEventListener("click", ()=>{
+  resetAllBtn.addEventListener("click", async ()=>{
     const ok = confirm("전체 데이터를 초기화할까요?\n(학생명단/모든 기록이 삭제됩니다)");
     if (!ok) return;
-    localStorage.removeItem(KEY);
+
+    const fresh = sanitizePracticeState({
+      mode: "student",
+      roster: makeRoster30(),
+      studentRecordsByDate: {},
+      itemRecordsByDate: {},
+      lastMetric: "under",
+      meta: { school:"", grade:"", className:"" },
+    });
+
+    localStorage.setItem(KEY, JSON.stringify(fresh));
+    if (practiceCloudRef){
+      try{
+        const payload = JSON.parse(JSON.stringify(fresh));
+        await practiceCloudRef.set({
+          state: payload,
+          slot: SLOT,
+          updatedBy: PRACTICE_CLIENT_ID,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+      }catch(err){
+        console.warn("[firebase] practice cloud reset failed:", err);
+      }
+    }
     location.reload();
   });
 }
@@ -1439,6 +1619,7 @@ if (removeStudentBtn){
 ========================================================= */
 renderGrid();
 setMode(state.mode || "student");
+void startPracticeCloudSync();
 </script>
 
 </body>

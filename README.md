@@ -14,40 +14,55 @@
 python3 -m http.server 8080
 ```
 
-이후 접속:
+접속:
 
 - `http://localhost:8080/`
 
 ## GitHub Pages 배포
 
-이 저장소는 GitHub Actions 기반 Pages 배포를 사용합니다.
-
 1. 기본 브랜치를 `main`으로 사용합니다.
-2. `main` 브랜치에 push 하면 `.github/workflows/deploy-pages.yml`이 자동 실행됩니다.
+2. `main` 브랜치에 push 하면 `.github/workflows/deploy-pages.yml`이 실행됩니다.
 3. GitHub 저장소 `Settings > Pages`에서 Build and deployment를 `GitHub Actions`로 설정합니다.
-4. 배포 완료 후 발급된 Pages URL에서 아래를 확인합니다.
+4. 배포 URL에서 아래를 확인합니다.
 
 - `/` 접속 시 메인 홈 노출
 - 홈 > 기능연습 > 버튼 클릭 시 `practice/index.html?slot=n` 로드
 - 홈 > 실전게임 > 기록원 클릭 시 `volleyball/index.html` 로드
 
-## 브랜치 정책
+## Firebase 연동 설정
 
-현재 로컬 브랜치가 `master`라면 아래처럼 `main`으로 전환해 사용하세요.
+코드에는 Firestore 동기화가 이미 연결되어 있습니다. 콘솔 값만 넣으면 동작합니다.
 
-```bash
-git branch -m master main
-git push -u origin main
+1. Firebase 콘솔에서 프로젝트/웹앱 생성
+2. Firestore Database 생성
+3. 루트 `firebase.config.js`에 Web SDK 값 입력
+4. 필요 시 `window.CLASS_ID` 변경 (기본: `public-class-1`)
+
+### Firestore 문서 경로
+
+- `classes/{CLASS_ID}/states/app_shell`
+- `classes/{CLASS_ID}/states/practice_slot_{slot}`
+- `classes/{CLASS_ID}/states/scoreboard`
+
+### Firestore Rules 예시(공개 테스트용)
+
+```txt
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /classes/public-class-1/states/{docId} {
+      allow read, write: if true;
+    }
+  }
+}
 ```
 
-원격 기본 브랜치도 `main`으로 변경한 뒤, 필요 시 기존 `master`를 정리합니다.
+주의: 위 규칙은 누구나 수정 가능하므로 운영 시 인증/권한 규칙으로 교체하세요.
 
-## 데이터 저장 방식
-
-현재 데이터는 사용자 브라우저의 `localStorage`에 저장됩니다.
+## 현재 저장 키
 
 - 메인 앱: `vb_class_app_shell_v1`
 - 기능연습: `vb_under_over_serve_v1__{slot}`
 - 실전게임: `vb_scoreboard_full_v1`
 
-즉, 사용자 간 실시간 공유는 아직 지원하지 않습니다. (Firebase 연동은 2단계 범위)
+로컬 저장(`localStorage`)은 유지되고, Firebase가 설정되면 Firestore와 병행 동기화됩니다.
