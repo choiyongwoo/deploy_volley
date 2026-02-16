@@ -38,7 +38,7 @@ python3 -m http.server 8080
 2. Firestore Database 생성
 3. 루트 `firebase.config.js`에 Web SDK 값 입력
 4. `window.CLASS_ID` 확인 (기본: `public-class-1`)
-5. `window.ADMIN_EMAIL`에 관리자 Google 이메일 입력
+5. `window.ADMIN_EMAILS`(또는 `window.ADMIN_EMAIL`)에 관리자 Google 이메일 입력
 
 ### Firestore 문서 경로
 

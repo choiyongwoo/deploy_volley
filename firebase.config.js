@@ -13,3 +13,7 @@ window.CLASS_ID = "public-class-1";
 
 // 관리자 Google 계정(소문자 이메일 권장)
 window.ADMIN_EMAIL = "xhtnsdl1904@gmail.com";
+window.ADMIN_EMAILS = [
+  "xhtnsdl1904@gmail.com",
+  "chlydyddn98@gmail.com"
+];

@@ -137,7 +137,14 @@
     const provider = new firebase.auth.GoogleAuthProvider();
 
     const classId = String(window.CLASS_ID || "public-class-1").trim() || "public-class-1";
-    const adminEmail = String(window.ADMIN_EMAIL || "").trim().toLowerCase();
+    const adminEmails = (() => {
+      const list = Array.isArray(window.ADMIN_EMAILS) ? window.ADMIN_EMAILS : [];
+      const normalized = list.map((x) => String(x || "").trim().toLowerCase()).filter(Boolean);
+      if (normalized.length > 0) return normalized;
+      const single = String(window.ADMIN_EMAIL || "").trim().toLowerCase();
+      return single ? [single] : [];
+    })();
+    const adminEmailText = adminEmails.join(", ");
     const gateRef = db.collection("classes").doc(classId).collection("control").doc("gate");
 
     gatePath.textContent = `classes/${classId}/control/gate`;
@@ -163,12 +170,12 @@
         ? `로그인: ${currentUser.email || currentUser.uid}`
         : "로그인: 없음";
 
-      if (!adminEmail) {
-        roleLine.textContent = "경고: firebase.config.js의 ADMIN_EMAIL이 비어 있습니다.";
+      if (adminEmails.length === 0) {
+        roleLine.textContent = "경고: firebase.config.js의 ADMIN_EMAILS/ADMIN_EMAIL이 비어 있습니다.";
       } else if (isAdmin) {
-        roleLine.textContent = `권한: 관리자 (${adminEmail})`;
+        roleLine.textContent = `권한: 관리자 (${adminEmailText})`;
       } else {
-        roleLine.textContent = `권한: 일반 사용자 (관리자: ${adminEmail})`;
+        roleLine.textContent = `권한: 일반 사용자 (관리자: ${adminEmailText})`;
       }
 
       loginBtn.disabled = !!currentUser;
@@ -184,7 +191,7 @@
     auth.onAuthStateChanged((user) => {
       currentUser = user;
       const email = String(user?.email || "").toLowerCase();
-      isAdmin = !!(email && adminEmail && email === adminEmail);
+      isAdmin = !!(email && adminEmails.includes(email));
       updateAuthUi();
     });
 
