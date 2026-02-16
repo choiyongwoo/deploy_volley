@@ -1,0 +1,8 @@
+name = "volley-gate"
+main = "src/index.js"
+compatibility_date = "2026-02-16"
+
+[[kv_namespaces]]
+binding = "GATE_KV"
+id = "8973998d54984df9a95906f63ed3a526"
+preview_id = "fe0868bf595145f3a0933b6f0b60cfbe"
